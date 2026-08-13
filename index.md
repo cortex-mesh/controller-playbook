@@ -2,9 +2,9 @@
 
 A public method for shipping products with a **Chief of Staff** plus a **pool of worker CLIs**, instead of one long-lived coding session.
 
-This repository is the method. It is not a personal fleet inventory: no names, no IPs, no private host tables. The same loop runs on a laptop or on many machines.
+This site is the method. It is not a personal fleet inventory: no names, no IPs, no private host tables. The same loop runs on a laptop or on many machines.
 
-Site: [playbook.cortexagents.ai](https://playbook.cortexagents.ai). DNS is applied by the operator; this repo only ships the `CNAME` file.
+Source: [github.com/cortex-mesh/controller-playbook](https://github.com/cortex-mesh/controller-playbook). DNS is applied by the operator; the repository only ships the `CNAME` file.
 
 ## Why this route
 
@@ -57,36 +57,16 @@ A laptop-only worker pool is valid. Fill the table with one row:
 
 Still use a dedicated git worktree per track. Still split implementer and reviewer. Still heartbeat while a track is running. The pool size is an operations choice, not a requirement of the method.
 
-## How to start
+## Start here
 
-1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, and the human-stop list.
-2. Read [docs/architecture.md](docs/architecture.md) for the architecture and one-track sequence.
-3. Choose a controller identity in [playbooks/README.md](playbooks/README.md).
-4. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path.
-5. Author a goal from [examples/sample-goal-prompt.md](examples/sample-goal-prompt.md). Swap Harbor for your product. Replace `dev-1` / `dev-2` with your hosts.
-6. Keep a [meta-repo](docs/meta-repo.md) as a map, not as the product. Never publish a `.private/` directory.
-
-## Playbooks
-
-| Controller | Implementer | Reviewer | Doc |
-| --- | --- | --- | --- |
-| Any | Isolated worker CLI | Different family from the writer | [playbooks/general.md](playbooks/general.md) |
-| Claude | Worker CLI (often Codex) | Opus | [playbooks/claude.md](playbooks/claude.md) |
-| Codex | Codex CLI | `gpt-5.6-sol` / high | [playbooks/codex.md](playbooks/codex.md) |
-| Grok Bot | Grok CLI `grok-4.6` | `gpt-5.6-sol` / high COMMENT | [playbooks/grok.md](playbooks/grok.md) |
-
-## Docs
-
-- [Design](docs/design.md) — roles, loop, gates, anti-churn, human-stop
-- [Architecture](docs/architecture.md) — mermaid architecture and sequence
-- [Meta-repo](docs/meta-repo.md) — map vs product repos
+- [Design](docs/design.md) — roles, gates, anti-churn, human-stop list
+- [Architecture](docs/architecture.md) — architecture and one-track sequence
+- [Playbooks](playbooks/README.md) — choose by controller identity
+- [Goal-prompt skill](skills/goal-prompt/SKILL.md) — author the standing instruction
+- [Sample Harbor goal](examples/sample-goal-prompt.md) — fictional product, placeholder workers
+- [Meta-repo](docs/meta-repo.md) — map, not product
 - [Method ADRs](docs/adr/README.md)
-- [Sample dependency graph](examples/sample-dependency-graph.md)
-
-## Pages
-
-GitHub Pages deploys from `main` via [`.github/workflows/pages.yml`](.github/workflows/pages.yml). The `CNAME` file is exactly `playbook.cortexagents.ai`. Enabling the custom domain and applying DNS are operator steps. This repository does not change DNS.
 
 ## License
 
-[MIT](LICENSE) © CORTEX Mesh contributors.
+MIT © CORTEX Mesh contributors.
