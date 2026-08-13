@@ -25,6 +25,6 @@ Every heartbeat opens with local time and `YYYY-MM-DD HH:MM:SS TZ`.
 
 ## Consequences
 
-- Grok Bot CoS uses a 10-minute weekday routine. Claude-style controllers poll on the same cadence.
+- Grok Bot CoS uses a 10-minute routine every calendar day, including weekends, while any track is running. Claude-style controllers poll on the same cadence.
 - "Still working on `dev-1`" is a valid heartbeat. Silence is not.
 - Operators see progress without opening every machine.

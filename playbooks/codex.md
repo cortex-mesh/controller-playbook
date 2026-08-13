@@ -54,8 +54,12 @@ For a small task on an existing persistent session: send one precise outcome, pr
 
 From a fresh session and a clean worktree against the current PR head:
 
+Resolve `<default>` from this repo; do not assume `main`.
+
 ```sh
-codex review --base origin/main \
+DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
+  || echo origin/<default>)
+codex review --base "$DEFAULT" \
   -c 'model="gpt-5.6-sol"' \
   -c 'model_reasoning_effort="high"'
 ```

@@ -22,32 +22,44 @@ ssh user@host 'git -C <repo> fetch origin -q && git -C <repo> worktree add <work
 
 `user@host` is a placeholder. Never implement in the shared default-branch checkout. Do not rely on `grok --worktree` in `-p` mode.
 
+Default tmux `remain-on-exit` is off. A finished `grok -p` then destroys the only pane, so `AWAITING GATE` and failures vanish between heartbeats. Set `remain-on-exit on` before the process can exit, tee stdout/stderr to `$HOME/.grok/logs/<track>.log`, and capture from the pane **or** that log.
+
 ## First phase
 
 ```sh
 GROK="$HOME/.grok/bin/grok"
-tmux new-session -d -s <track> \
+LOG="$HOME/.grok/logs/<track>.log"
+mkdir -p "$HOME/.grok/logs"
+tmux new-session -d -s <track>
+tmux set-option -t <track> remain-on-exit on
+tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
+     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     2>&1 | tee \"$LOG\"" Enter
 ```
 
 ## Later phases (same track)
 
 ```sh
-tmux new-session -d -s <track> \
+LOG="$HOME/.grok/logs/<track>.log"
+mkdir -p "$HOME/.grok/logs"
+tmux new-session -d -s <track>
+tmux set-option -t <track> remain-on-exit on
+tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete phase. Same gate protocol.'"
+     --continue -p 'Execute the next incomplete phase. Same gate protocol.' \
+     2>&1 | tee \"$LOG\"" Enter
 ```
 
 Prefer `--continue` or `--resume <uuid>` over a new conversation.
 
 ## Steer
 
-Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. Send a short "read this file" command rather than pasting a large prompt. Verify with `tmux capture-pane` that work started.
+Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. Send a short "read this file" command rather than pasting a large prompt. Verify with `tmux capture-pane -t <track> -p` or `tail` of `$HOME/.grok/logs/<track>.log` that work started.
 
 ## After launch
 
-- Confirm the pane is alive.
+- Confirm the pane is alive or the log has started. After `grok -p` exits, read the held pane or the log — do not treat a dead command as missing output.
 - Do not double-dispatch this host until the track reports GATE, block, or done.
 - Heartbeat every 10 minutes from the CoS routine.

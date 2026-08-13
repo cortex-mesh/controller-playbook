@@ -47,20 +47,32 @@ CoS writes graph → dispatch each unblocked track to a free worker
 
 First phase:
 
+Default tmux `remain-on-exit` is off. Set it on and tee to `$HOME/.grok/logs/<track>.log` so a finished `grok -p` does not erase `AWAITING GATE` or failures. Capture from the held pane or that log.
+
 ```sh
 GROK="$HOME/.grok/bin/grok"
-tmux new-session -d -s <track> \
+LOG="$HOME/.grok/logs/<track>.log"
+mkdir -p "$HOME/.grok/logs"
+tmux new-session -d -s <track>
+tmux set-option -t <track> remain-on-exit on
+tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
+     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     2>&1 | tee \"$LOG\"" Enter
 ```
 
 Later phases on the same track:
 
 ```sh
-tmux new-session -d -s <track> \
+LOG="$HOME/.grok/logs/<track>.log"
+mkdir -p "$HOME/.grok/logs"
+tmux new-session -d -s <track>
+tmux set-option -t <track> remain-on-exit on
+tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete phase. Same gate protocol.'"
+     --continue -p 'Execute the next incomplete phase. Same gate protocol.' \
+     2>&1 | tee \"$LOG\"" Enter
 ```
 
 Prefer `--continue` or `--resume <uuid>` over a new conversation. Interactive TUI (`--no-alt-screen` in tmux) is for live steer only. Send "read this file" rather than pasting a huge prompt.
@@ -71,8 +83,12 @@ Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-tr
 
 ## Review
 
+Resolve `<default>` from this repo; do not assume `main`.
+
 ```sh
-codex review --base origin/main \
+DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
+  || echo origin/<default>)
+codex review --base "$DEFAULT" \
   -c 'model="gpt-5.6-sol"' \
   -c 'model_reasoning_effort="high"'
 gh pr review <PR#> --comment --body-file <verdict.md>
@@ -96,7 +112,7 @@ Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, securi
 
 ## Heartbeat
 
-Grok Bot cannot sit in a turn. Put a **10-minute weekday routine** on the CoS Bot whose prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track."
+Grok Bot cannot sit in a turn. While any track is running, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." A weekday-only schedule misses weekend tracks; do not use one.
 
 ```text
 Thu Aug 13, 2026, 6:45:00 AM PT
