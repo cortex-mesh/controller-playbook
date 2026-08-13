@@ -1,0 +1,29 @@
+title: Controller Playbook
+description: Chief of Staff plus worker CLI method for shipping products
+url: https://playbook.cortexagents.ai
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  hard_wrap: false
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-default-layout
+  - jekyll-relative-links
+  - jekyll-titles-from-headings
+optional_front_matter:
+  remove_originals: false
+relative_links:
+  enabled: true
+  collections: true
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - LICENSE
+  - .gitignore
+  - .github
+  - vendor
+  - README.md

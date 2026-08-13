@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; background: #fff; }
+    .site-header {
+      border-bottom: 1px solid #d0d7de;
+      padding: 0.85rem 1.25rem;
+    }
+    .site-header nav {
+      max-width: 880px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1rem;
+      font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    .site-header a { color: #0969da; text-decoration: none; }
+    .site-header a:hover { text-decoration: underline; }
+    .site-header .brand { color: #1f2328; font-weight: 600; margin-right: 0.5rem; }
+    .markdown-body { box-sizing: border-box; max-width: 880px; margin: 2rem auto 0; padding: 0 1.25rem 4rem; }
+    .site-footer {
+      max-width: 880px;
+      margin: 0 auto 2.5rem;
+      padding: 0 1.25rem;
+      color: #656d76;
+      font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    .mermaid { margin: 1.25rem 0; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a class="brand" href="{{ '/' | relative_url }}">Controller Playbook</a>
+      <a href="{{ '/docs/design.html' | relative_url }}">Design</a>
+      <a href="{{ '/docs/architecture.html' | relative_url }}">Architecture</a>
+      <a href="{{ '/docs/meta-repo.html' | relative_url }}">Meta-repo</a>
+      <a href="{{ '/playbooks/' | relative_url }}">Playbooks</a>
+      <a href="{{ '/docs/adr/' | relative_url }}">ADRs</a>
+      <a href="{{ '/examples/sample-goal-prompt.html' | relative_url }}">Examples</a>
+    </nav>
+  </header>
+  <article class="markdown-body">
+    {{ content }}
+  </article>
+  <footer class="site-footer">
+    MIT · CORTEX Mesh contributors ·
+    <a href="https://github.com/cortex-mesh/controller-playbook">Source</a>
+  </footer>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+    document.querySelectorAll("pre code.language-mermaid").forEach((el) => {
+      const pre = el.parentElement;
+      const div = document.createElement("div");
+      div.className = "mermaid";
+      div.textContent = el.textContent;
+      pre.replaceWith(div);
+    });
+    await mermaid.run({ querySelector: ".mermaid" });
+  </script>
+</body>
+</html>
