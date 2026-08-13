@@ -22,9 +22,10 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Mutation-test new tests.
 6. **Draft PR + COMMENT review.** Different family from the writer. Never Approve.
 7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks.
-8. **CoS gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI. Live-verify staging.
+8. **CoS repo gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
 9. **REVISE or merge.** Serialize overlapping merges. Watch default-branch CI after merge.
-10. **Human production.** Workers never dispatch production.
+10. **Staging gate.** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
+11. **Human production.** Workers never dispatch production.
 
 The CoS chat is authoritative. A watchdog may inspect, heartbeat, and take the next already-authorized repo-safe step. It may not invent gates, merge production, or retry an unresolved escalation forever.
 

@@ -13,7 +13,7 @@ Same-model self-review is the failure mode this split exists to prevent. A write
 - Default Grok-implement path: `gpt-5.6-sol` / high via `codex review`.
 - Default Claude-controller path: Opus.
 - Default Codex-controller path: `gpt-5.6-sol` / high, in a fresh session, not the implementing session.
-- Post the verdict with `gh pr review --comment`. Never Approve. Never Request changes from the worker.
+- Post the verdict with `gh pr review --comment --body-file <verdict.md>`. Never interpolate model output into a shell `--body`. Never Approve. Never Request changes from the worker.
 - Review the **current head**. A verdict on a previous SHA does not gate a new SHA.
 - High-risk diffs (schema, auth, migration, security, data-write) get a fresh CoS-run review, not a reread of the worker's summary.
 

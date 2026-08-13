@@ -63,7 +63,7 @@ codex review --base origin/main \
 Post as a GitHub COMMENT if the worker did not already, or if you re-reviewed a new head:
 
 ```sh
-gh pr review <PR#> --comment --body "<sol/high verdict>"
+gh pr review <PR#> --comment --body-file <verdict.md>
 ```
 
 Never Approve. Read the verdict and check material findings against the actual head.

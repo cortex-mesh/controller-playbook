@@ -75,7 +75,7 @@ Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-tr
 codex review --base origin/main \
   -c 'model="gpt-5.6-sol"' \
   -c 'model_reasoning_effort="high"'
-gh pr review <PR#> --comment --body "<verdict>"
+gh pr review <PR#> --comment --body-file <verdict.md>
 ```
 
 Never Approve. Never review the PR in the same Grok session that wrote it.
@@ -87,8 +87,10 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 1. Clobber-check; rebase; serialize merges.
 2. If rebase moved the SHA, run a fresh COMMENT review on the new head.
 3. Confirm COMMENT exists for **this** head.
-4. Exact-head CI, then live-verify staging.
+4. Exact-head CI.
 5. Read the verdict.
+
+After merge: watch default-branch CI, deploy staging, live-verify the merged SHA.
 
 Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
 

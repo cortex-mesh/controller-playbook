@@ -52,7 +52,7 @@ Production stays a human gate.
 - Run the repo's lint, test, typecheck, and build.
 - Mutation-test new tests: revert the fix, the test must fail.
 - Open a **draft** PR.
-- Run the reviewer CLI from a clean tree and post `gh pr review --comment`.
+- Run the reviewer CLI from a clean tree and post `gh pr review --comment --body-file <verdict.md>`.
 - Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks.
 - Never self-merge. Never ship production.
 
@@ -63,10 +63,12 @@ Do not revert a correct fix to satisfy a stale test. Update the test and prove i
 1. Clobber-check against other live tracks. Rebase on the latest default branch.
 2. If rebase moved the SHA, run a fresh COMMENT review on the new head.
 3. Confirm a COMMENT review exists for **this** head.
-4. CI green on this SHA. Then live-verify staging. Green CI is not enough.
+4. CI green on this SHA.
 5. Read the verdict. Do not merge on a grep for "no blocking."
 
 Escalate to a fresh CoS-run review for schema, auth, migration, security, data-write, or a thin pre-review.
+
+After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Green pre-merge CI is not a staging check.
 
 ## Heartbeat
 

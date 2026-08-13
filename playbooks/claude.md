@@ -1,6 +1,6 @@
 # Claude controller playbook
 
-Use this when **Claude** is the Chief of Staff. Review is **Opus**. Implementation is a worker CLI — commonly Codex, or Claude CLI if you choose that. Do not let the implementing session review itself.
+Use this when **Claude** is the Chief of Staff. Review is **Opus**. Implementation is a worker CLI in a **different family** from Opus — commonly Codex. Do not let the implementing session review itself, and do not use Opus as both writer and reviewer.
 
 Pin current model selectors on the controller host before the first dispatch. If `opus` does not resolve to the intended Opus tier, stop rather than silently reviewing with an older tier.
 
@@ -8,8 +8,8 @@ Pin current model selectors on the controller host before the first dispatch. If
 
 | Role | Default |
 | --- | --- |
-| Implement | Worker CLI of record for the goal (often Codex `gpt-5.6-terra` / high) |
-| Authoritative review | **Opus**, fresh session, `--effort high` |
+| Implement | Different family from Opus (default Codex `gpt-5.6-terra` / high) |
+| Authoritative review | **Opus**, fresh session, high effort |
 | High-risk re-review | Fresh Opus with a risk-specific prompt |
 
 This playbook's reviewer choice overrides any generic default in a launch skill.
@@ -50,28 +50,25 @@ codex exec -m gpt-5.6-terra \
   "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
 ```
 
-If the worker is Claude CLI:
+A Claude CLI worker is only valid if it is **not** the Opus reviewer family. If you implement with Opus, pick another playbook's reviewer. Prefer Codex on this path.
 
-```sh
-claude --dangerously-skip-permissions -p \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
-```
-
-Run either shape in a named tmux session on the worker host. Autonomous scope never includes production, destructive data, paid services, secret creation, or decisions outside the locked goal.
+Run the worker in a named tmux session on the worker host. Autonomous scope never includes production, destructive data, paid services, secret creation, or decisions outside the locked goal.
 
 ## Opus review
 
 Fresh Opus context against a clean checkout at the current PR head:
 
+Current Claude Code takes `/code-review <level> [target]`. Confirm `claude --version` on the controller before first use. If the binary still documents `--effort`, stop and align the CLI rather than mixing forms.
+
 ```sh
 claude --model opus --dangerously-skip-permissions -p \
-  "/code-review <PR#> --effort high"
+  "/code-review high <PR#>"
 ```
 
-Capture the verdict and publish it on the existing draft PR. `/code-review` does not, by itself, create the GitHub COMMENT the gate requires:
+Capture the verdict to a file and publish it on the existing draft PR. `/code-review` does not, by itself, create the GitHub COMMENT the gate requires:
 
 ```sh
-gh pr review <PR#> --comment --body "<opus verdict>"
+gh pr review <PR#> --comment --body-file <verdict.md>
 ```
 
 The review prompt must name base and head and ask for concrete bugs, regressions, missing tests, and scope-specific risks. Read the verdict. A finding is a claim to verify, not a command to obey.
