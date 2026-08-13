@@ -31,7 +31,7 @@ CoS writes graph → dispatch each unblocked track to a free worker
   → different-family COMMENT review, draft PR, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh reviewer COMMENT
-  → REVISE or GATE → serialize merge → staging → live-verify
+  → REVISE or GATE → gh pr ready → serialize merge → staging → live-verify
 ```
 
 Production stays a human gate.
@@ -65,6 +65,13 @@ Do not revert a correct fix to satisfy a stale test. Update the test and prove i
 3. Confirm a COMMENT review exists for **this** head.
 4. CI green on this SHA.
 5. Read the verdict. Do not merge on a grep for "no blocking."
+6. After GATE, mark the draft ready. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
+
+```sh
+gh pr ready <PR#>
+```
+
+Then serialize merge.
 
 Escalate to a fresh CoS-run review for schema, auth, migration, security, data-write, or a thin pre-review.
 

@@ -62,17 +62,22 @@ tmux send-keys -t <track> \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
-Later phases on the same track:
+Later phases on the same track. `remain-on-exit` leaves `<track>` alive with a dead pane — do not `new-session -s <track>` again. Respawn the held pane (or create the session only if it is gone).
 
 ```sh
+GROK="$HOME/.grok/bin/grok"
 LOG="$HOME/.grok/logs/<track>.log"
 mkdir -p "$HOME/.grok/logs"
-tmux new-session -d -s <track>
-tmux set-option -t <track> remain-on-exit on
+if tmux has-session -t <track> 2>/dev/null; then
+  tmux respawn-pane -k -t <track>
+else
+  tmux new-session -d -s <track>
+  tmux set-option -t <track> remain-on-exit on
+fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
      --continue -p 'Execute the next incomplete phase. Same gate protocol.' \
-     2>&1 | tee \"$LOG\"" Enter
+     2>&1 | tee -a \"$LOG\"" Enter
 ```
 
 Prefer `--continue` or `--resume <uuid>` over a new conversation. Interactive TUI (`--no-alt-screen` in tmux) is for live steer only. Send "read this file" rather than pasting a huge prompt.

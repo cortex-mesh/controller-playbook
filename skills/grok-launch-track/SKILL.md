@@ -41,15 +41,22 @@ tmux send-keys -t <track> \
 
 ## Later phases (same track)
 
+`remain-on-exit` leaves `<track>` alive with a dead pane. `tmux new-session -d -s <track>` then fails, and `send-keys` cannot run in the dead pane. Respawn the held pane (or create the session only if it is gone).
+
 ```sh
+GROK="$HOME/.grok/bin/grok"
 LOG="$HOME/.grok/logs/<track>.log"
 mkdir -p "$HOME/.grok/logs"
-tmux new-session -d -s <track>
-tmux set-option -t <track> remain-on-exit on
+if tmux has-session -t <track> 2>/dev/null; then
+  tmux respawn-pane -k -t <track>
+else
+  tmux new-session -d -s <track>
+  tmux set-option -t <track> remain-on-exit on
+fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
      --continue -p 'Execute the next incomplete phase. Same gate protocol.' \
-     2>&1 | tee \"$LOG\"" Enter
+     2>&1 | tee -a \"$LOG\"" Enter
 ```
 
 Prefer `--continue` or `--resume <uuid>` over a new conversation.
