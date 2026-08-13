@@ -1,3 +1,7 @@
+---
+permalink: /playbooks/
+---
+
 # Playbooks
 
 Choose the playbook by **controller identity**, not by which laptop happens to be awake.

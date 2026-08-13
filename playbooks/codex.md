@@ -74,7 +74,7 @@ Same handoff as [general.md](general.md): real caller path, repo gates, mutation
 
 ## Gate and merge
 
-Rebase, clobber-check, COMMENT covers this head, CI green on this SHA, serialize merges. After merge, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
+Rebase, clobber-check, then confirm COMMENT covers **this** head (fresh COMMENT if rebase moved the SHA). CI green on this SHA. Serialize merges. After merge, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
 
 ## Heartbeat
 

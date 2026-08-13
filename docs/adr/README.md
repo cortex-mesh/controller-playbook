@@ -1,3 +1,7 @@
+---
+permalink: /docs/adr/
+---
+
 # Method ADRs
 
 These ADRs record the **controller method**, not a product architecture. Product ADRs (schema, tenancy, stack) stay in product repos.

@@ -29,7 +29,7 @@ GROK="$HOME/.grok/bin/grok"
 tmux new-session -d -s <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Then run the reviewer CLI, post gh pr review --comment, open a draft PR, report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
+     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
 ```
 
 ## Later phases (same track)

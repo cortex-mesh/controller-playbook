@@ -22,7 +22,7 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Mutation-test new tests.
 6. **Draft PR + COMMENT review.** Different family from the writer. Never Approve.
 7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks.
-8. **CoS gate.** Confirm the COMMENT covers this head. Clobber-check. Exact-head CI. Live-verify staging.
+8. **CoS gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI. Live-verify staging.
 9. **REVISE or merge.** Serialize overlapping merges. Watch default-branch CI after merge.
 10. **Human production.** Workers never dispatch production.
 

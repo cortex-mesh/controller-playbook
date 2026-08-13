@@ -60,10 +60,11 @@ Do not revert a correct fix to satisfy a stale test. Update the test and prove i
 
 ## CoS gate
 
-1. A COMMENT review exists for **this** head.
-2. Clobber-check against other live tracks. Rebase on the latest default branch.
-3. CI green on this SHA. Then live-verify staging. Green CI is not enough.
-4. Read the verdict. Do not merge on a grep for "no blocking."
+1. Clobber-check against other live tracks. Rebase on the latest default branch.
+2. If rebase moved the SHA, run a fresh COMMENT review on the new head.
+3. Confirm a COMMENT review exists for **this** head.
+4. CI green on this SHA. Then live-verify staging. Green CI is not enough.
+5. Read the verdict. Do not merge on a grep for "no blocking."
 
 Escalate to a fresh CoS-run review for schema, auth, migration, security, data-write, or a thin pre-review.
 

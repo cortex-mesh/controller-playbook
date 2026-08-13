@@ -52,7 +52,7 @@ GROK="$HOME/.grok/bin/grok"
 tmux new-session -d -s <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Then run the reviewer CLI, post gh pr review --comment, open a draft PR, report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
+     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.'"
 ```
 
 Later phases on the same track:
@@ -84,10 +84,11 @@ Never Approve. Never review the PR in the same Grok session that wrote it.
 
 Agent-side Sol/high is already the different-family check. Default CoS gate is **not** a second Sol pass on every low-risk diff:
 
-1. COMMENT exists for this head.
-2. Clobber-check; rebase; serialize merges.
-3. Exact-head CI, then live-verify staging.
-4. Read the verdict.
+1. Clobber-check; rebase; serialize merges.
+2. If rebase moved the SHA, run a fresh COMMENT review on the new head.
+3. Confirm COMMENT exists for **this** head.
+4. Exact-head CI, then live-verify staging.
+5. Read the verdict.
 
 Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
 

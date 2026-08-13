@@ -68,7 +68,13 @@ claude --model opus --dangerously-skip-permissions -p \
   "/code-review <PR#> --effort high"
 ```
 
-The prompt must name base and head and ask for concrete bugs, regressions, missing tests, and scope-specific risks. Read the verdict. A finding is a claim to verify, not a command to obey.
+Capture the verdict and publish it on the existing draft PR. `/code-review` does not, by itself, create the GitHub COMMENT the gate requires:
+
+```sh
+gh pr review <PR#> --comment --body "<opus verdict>"
+```
+
+The review prompt must name base and head and ask for concrete bugs, regressions, missing tests, and scope-specific risks. Read the verdict. A finding is a claim to verify, not a command to obey.
 
 Every PR needs this review. Schema, migration, auth, tenant-boundary, security, or data-write changes get a second focused Opus pass.
 
@@ -76,7 +82,7 @@ Return `REVISE` with file, line, failure scenario, expected correction, and requ
 
 ## Gate and merge
 
-Rebase onto the latest default branch. Scan files other tracks touch. Confirm Opus covered this head. Confirm CI is green on this SHA. Serialize overlapping merges. Live-verify staging. Production remains human-run.
+Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA. Serialize overlapping merges. Live-verify staging. Production remains human-run.
 
 ## Heartbeat
 
