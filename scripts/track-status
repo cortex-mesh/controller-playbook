@@ -244,7 +244,7 @@ def infer(node, repo):
             bits.append("tmux recorded %s" % rec_tmux)
 
     pr_open = pr_merged = False
-    head, comment = graph_sha, graph_comment
+    head, comment = graph_sha, (graph_comment and filled(graph_sha))
     if live_pr:
         source = "live" if source == "live" else "mixed"
         st = (live_pr.get("state") or "").upper()
@@ -273,19 +273,19 @@ def infer(node, repo):
     elif live_branch is False and branch:
         bits.append("no local branch")
 
+    stop = ("MERGED", "PENDING", "AWAITING LOGIN", "AWAITING SPLIT")
     if pr_merged:
         inferred, redispatch = "MERGED", "no"
     elif pr_open and comment:
         inferred, redispatch = "AWAITING GATE", "no"
     elif pr_open or tmux_up or live_branch is True:
         inferred, redispatch = "DISPATCHED", "no"
-    elif remote and graph_state not in ("MERGED", "PENDING", "AWAITING LOGIN", "DEAD"):
-        # Do not call a remote track DEAD from missing local tmux/branch.
-        inferred, redispatch = "DISPATCHED", "no"
-        bits.append("remote; not DEAD without live facts")
-    elif graph_state in ("MERGED", "PENDING", "AWAITING LOGIN"):
+    elif graph_state in stop:
         inferred, redispatch = graph_state, "no"
         bits.append("graph %s; no live work" % graph_state)
+    elif remote:
+        inferred, redispatch = "DISPATCHED", "no"
+        bits.append("remote; not DEAD without live facts")
     else:
         inferred, redispatch = "DEAD", "yes"
         bits.append("no tmux, no PR, no branch")
