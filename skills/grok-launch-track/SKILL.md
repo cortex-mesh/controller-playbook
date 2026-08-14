@@ -1,18 +1,21 @@
 ---
 name: grok-launch-track
-description: Launch, resume, or inspect one Grok CLI implementation track on a worker host for a Grok Bot CoS. Use when dispatching the next phase of a Grok goal prompt to a free machine in the worker pool.
+description: Launch, resume, or inspect one Grok CLI implementation track on a worker host for a Grok Bot CoS. Use when dispatching the next worker phase of a Grok goal prompt to a free machine in the worker pool.
 ---
 
 # Launch a Grok CLI track
 
 Use this after the dependency graph says a track is unblocked. Full rules: [playbooks/grok.md](../../playbooks/grok.md).
 
+Do not dispatch staging or last integration. Those phases are CoS-only. Workers stop at `AWAITING GATE`.
+
 ## Pick a host
 
 1. Read the goal's worker-pool table.
-2. On each candidate: tmux list, `$HOME/.grok/bin/grok --version`, login check, reviewer CLI present, repo on the default branch and not behind origin, working tree clean.
-3. Skip busy or unhealthy hosts. Assign the least-loaded host that fits.
-4. Record host, worktree path, tmux session, and grok session id in the graph.
+2. On each candidate: tmux list, `$HOME/.grok/bin/grok --version`, login check (`grok` models + `gh`), reviewer CLI present, repo on the default branch and not behind origin, working tree clean.
+3. Login is a dispatch input, not a wave blocker. Skip a logged-out or busy host. Re-pick the least-loaded logged-in host that fits and write the new owner into the graph.
+4. If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+5. Record host, worktree path, tmux session, and grok session id in the graph.
 
 ## Worktree
 
@@ -20,9 +23,11 @@ Use this after the dependency graph says a track is unblocked. Full rules: [play
 ssh user@host 'git -C <repo> fetch origin -q && git -C <repo> worktree add <worktree> -b <branch> origin/<default>'
 ```
 
-`user@host` is a placeholder. Never implement in the shared default-branch checkout. Do not rely on `grok --worktree` in `-p` mode.
+`user@host` is a placeholder. Never implement in the shared default-branch checkout. Do not rely on `grok --worktree` in `-p` mode. Resolve `<default>` from this repo; do not assume `main`.
 
 Default tmux `remain-on-exit` is off. A finished `grok -p` then destroys the only pane, so `AWAITING GATE` and failures vanish between heartbeats. Set `remain-on-exit on` before the process can exit, tee stdout/stderr to `$HOME/.grok/logs/<track>.log`, and capture from the pane **or** that log.
+
+If tmux is gone later, infer `AWAITING GATE` from git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not re-dispatch.
 
 ## First phase
 
@@ -35,7 +40,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete phase end-to-end. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -55,7 +60,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete phase. Same gate protocol.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
@@ -63,10 +68,11 @@ Prefer `--continue` or `--resume <uuid>` over a new conversation.
 
 ## Steer
 
-Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. Send a short "read this file" command rather than pasting a large prompt. Verify with `tmux capture-pane -t <track> -p` or `tail` of `$HOME/.grok/logs/<track>.log` that work started.
+Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. If the controller cannot paste into tmux, write the instruction to a file and send a short Read of that file. Do not paste a large prompt. Verify with `tmux capture-pane -t <track> -p` or `tail` of `$HOME/.grok/logs/<track>.log` that work started.
 
 ## After launch
 
 - Confirm the pane is alive or the log has started. After `grok -p` exits, read the held pane or the log — do not treat a dead command as missing output.
+- A missing pane later is not a dead track. Infer GATE from git/PR. Do not re-dispatch.
 - Do not double-dispatch this host until the track reports GATE, block, or done.
-- Heartbeat every 10 minutes from the CoS routine.
+- Heartbeat every 10 minutes from the CoS routine while implementing or in CI. `AWAITING GATE` is one immediate notice, then quiet until CoS REVISE or GATE.

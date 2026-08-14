@@ -4,7 +4,7 @@ A public method for shipping products with a **Chief of Staff** plus a **pool of
 
 This site is the method. It is not a personal fleet inventory: no names, no IPs, no private host tables. The same loop runs on a laptop or on many machines.
 
-Source: [github.com/cortex-mesh/controller-playbook](https://github.com/cortex-mesh/controller-playbook). DNS is applied by the operator; the repository only ships the `CNAME` file.
+Source: [github.com/cortex-mesh/controller-playbook](https://github.com/cortex-mesh/controller-playbook). DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 
 ## Why this route
 

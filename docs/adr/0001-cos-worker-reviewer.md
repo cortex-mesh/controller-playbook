@@ -20,6 +20,7 @@ These are steps, not extra bot identities. One CoS per standing product goal.
 ## Consequences
 
 - Implementation does not run inside the CoS chat as a silent takeover.
-- Workers never self-merge and never ship production.
+- If dispatch fails, escalate dispatch. The CoS does not become the implementer.
+- Workers never self-merge, never `gh pr ready`, and never ship production.
 - A crashed worker session can be resumed against the same goal prompt.
 - The CoS can run many workers without becoming the author of their diffs.

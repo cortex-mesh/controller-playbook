@@ -67,7 +67,7 @@ sequenceDiagram
 
   Human->>CoS: lock decisions and goal prompt
   CoS->>CoS: write dependency graph
-  CoS->>Worker: dispatch next incomplete phase
+  CoS->>Worker: dispatch next incomplete worker phase
   Worker->>Worker: implement in dedicated worktree
   Worker->>Worker: lint, test, mutation-check
   Worker->>GH: open draft pull request
@@ -80,7 +80,7 @@ sequenceDiagram
     Worker->>GH: new head
     Worker->>Rev: review the new head
   else gate
-    CoS->>GH: serialize merge
+    CoS->>GH: mark ready and serialize merge
     CoS->>Stage: deploy merged SHA
     CoS->>CoS: live-verify staging
     CoS->>Human: production remains a human gate
@@ -89,29 +89,37 @@ sequenceDiagram
 
 ## Track artifact
 
-Every live track should be nameable from the graph:
+Every live track should be nameable from the graph. Keep assigned host (after failover), tmux or gone, log path, draft PR, head SHA, COMMENT URL, gate class, CoS-may-do, and login/preflight current. See [the sample graph](../examples/sample-dependency-graph.md).
 
 | Field | Example |
 | --- | --- |
 | Track | `harbor-berth-api` |
-| Host | `dev-1` |
+| Assigned host | `dev-2` after failover (`dev-1` logged out) |
+| Login / preflight | `grok` + `gh` logged in on the assigned host |
+| Tmux | gone — infer GATE from git/PR; do not re-dispatch |
+| Log path | `$HOME/.grok/logs/harbor-berth-api.log` |
 | Worktree | a path on that host, never the shared default-branch checkout |
 | Branch | `feat/berth-api` |
 | Base SHA | the default-branch SHA at dispatch |
+| Draft PR | `example-app#12` (draft) |
+| Head SHA | `abc1234` (pinned) |
+| COMMENT URL | the COMMENT review on this head |
 | Input contract | ADR-0001 accepted; schema from track A |
 | Overlaps | none with `harbor-web-shell` |
+| Gate class | repository |
 | Repo gate | lint, test, COMMENT, CI on this SHA |
-| Staging gate | merge after track A; live GET `/health` |
-| CoS may do without a human | rebase, COMMENT confirm, merge, staging verify |
+| Staging gate | CoS-only after merge; live GET `/health` |
+| CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, merge, staging verify |
 
 ## Watchdog
 
 The CoS cannot sit in one turn forever. A 10-minute routine (or a tmux watchdog that only repeats an authorized step) keeps the loop moving:
 
-- Heartbeat while any track is running, including "still working."
-- Inspect tmux, git, PR head, and CI.
-- Take the next already-authorized repo-safe step.
+- Heartbeat while implementing or in CI (dual timestamps), including "still working."
+- `AWAITING GATE`: one immediate notice, then quiet until CoS REVISE or GATE.
+- Inspect tmux, git, PR head, and CI. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
+- Take the next already-authorized repo-safe step. Do not become the implementer when dispatch fails.
 - Do not double-dispatch a progressing track.
-- After three documented attempts at the same blocker, escalate and stop that track.
+- Same blocker: (1) evidence, (2) one REVISE, (3) stop the track and escalate. No attempt 4. Independent tracks continue.
 
 See [ADR 0007](adr/0007-watchdog-heartbeat.md).

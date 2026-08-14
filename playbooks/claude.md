@@ -27,7 +27,7 @@ dispatch precise task/goal
 
 ## Dispatch
 
-Before every dispatch: confirm tmux, implementer login, default-branch freshness, and that the host is not already busy. Create a dedicated worktree. Name the next incomplete phase.
+Before every dispatch: confirm tmux, implementer login, default-branch freshness, and that the host is not already busy. Create a dedicated worktree. Name the next incomplete **worker** phase. Do not dispatch staging.
 
 If the worker is Codex:
 
@@ -37,7 +37,7 @@ codex -m gpt-5.6-terra \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
 ```
 
 Unattended:
@@ -47,7 +47,7 @@ codex exec -m gpt-5.6-terra \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
 ```
 
 A Claude CLI worker is only valid if it is **not** the Opus reviewer family. If you implement with Opus, pick another playbook's reviewer. Prefer Codex on this path.
@@ -66,6 +66,8 @@ claude --model opus --dangerously-skip-permissions -p \
 ```
 
 Capture the verdict to a file and publish it on the existing draft PR. `/code-review` does not, by itself, create the GitHub COMMENT the gate requires:
+
+Tee the verdict outside the repo. Pin `commit_id` to the exact head. Abort if the live head moved. Then:
 
 ```sh
 gh pr review <PR#> --comment --body-file <verdict.md>

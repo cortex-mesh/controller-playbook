@@ -19,7 +19,7 @@ Do not reuse a Claude or Codex goal as-is.
 | Launch | Headless `$HOME/.grok/bin/grok -p` then `--continue` / `--resume`. Tmux wraps the process. TUI only to steer. |
 | Autonomy | `--always-approve --permission-mode bypassPermissions` for in-scope writes. No production, no new paid secrets, no destructive data. |
 
-Use the absolute binary path. Non-interactive PATH often omits `~/.grok/bin`.
+Use the absolute binary path. Non-interactive PATH often omits `$HOME/.grok/bin`.
 
 ## Header example
 
@@ -30,7 +30,9 @@ Workers: Grok CLI grok-4.6 on the **worker pool** (CoS assigns host at dispatch)
 
 ## Extra hard rules for this path
 
-- Never tell the worker to review the PR in the same Grok session that wrote it.
+- Never tell the worker to review the PR in the same Grok session that wrote it. A fresh Grok session is not an acceptable reviewer.
 - Pin `grok-4.6`. Do not float `grok`.
 - One CoS Bot per standing product goal.
-- Heartbeat is a 10-minute Bot routine, not a 15- or 30-minute quiet poll.
+- Heartbeat is a 10-minute Bot routine while implementing or in CI, not a 15- or 30-minute quiet poll. `AWAITING GATE` is one notice, then quiet until REVISE or GATE.
+- Do not dispatch staging as the next incomplete phase. Workers never `gh pr ready`.
+- If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.

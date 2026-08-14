@@ -33,7 +33,7 @@ codex -m gpt-5.6-terra \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
 ```
 
 Unattended:
@@ -43,7 +43,7 @@ codex exec -m gpt-5.6-terra \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete phase end-to-end."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
 ```
 
 Run in a named tmux session. Verify `codex --version` and `codex login status` before first use on a host. Never implement in the shared default-branch checkout.
@@ -52,29 +52,42 @@ For a small task on an existing persistent session: send one precise outcome, pr
 
 ## Review
 
-From a fresh session and a clean worktree against the current PR head:
+From a fresh session and a clean worktree against the current PR head. Follow the SHA-pin protocol in [general.md](general.md): tee to `$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md`, check exit status, pin `commit_id` to the exact head, abort if the live head moved, then `gh pr review --comment --body-file`. Never interpolate the verdict into `--body`.
 
 Resolve `<default>` from this repo; do not assume `main`.
 
 ```sh
 DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
   || echo origin/<default>)
+REPO=$(basename "$(git rev-parse --show-toplevel)")
+PR=<PR#>
+PINNED=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+REVDIR="$HOME/.cortex/reviews"
+mkdir -p "$REVDIR"
+VERDICT="$REVDIR/${REPO}-pr${PR}-${PINNED}.md"
+set -o pipefail
 codex review --base "$DEFAULT" \
   -c 'model="gpt-5.6-sol"' \
-  -c 'model_reasoning_effort="high"'
-```
-
-Post as a GitHub COMMENT if the worker did not already, or if you re-reviewed a new head:
-
-```sh
-gh pr review <PR#> --comment --body-file <verdict.md>
+  -c 'model_reasoning_effort="high"' \
+  | tee "$VERDICT"
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "abort: codex review exit $status"
+  exit "$status"
+fi
+LIVE=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+if [ "$LIVE" != "$PINNED" ]; then
+  echo "abort: live head $LIVE != pinned $PINNED"
+  exit 1
+fi
+gh pr review "$PR" --comment --body-file "$VERDICT"
 ```
 
 Never Approve. Read the verdict and check material findings against the actual head.
 
 ## Worker must
 
-Same handoff as [general.md](general.md): real caller path, repo gates, mutation tests, draft PR, `AWAITING GATE`, no self-merge, no production.
+Same handoff as [general.md](general.md): real caller path, repo gates, mutation tests, draft PR, then COMMENT, `AWAITING GATE`, no `gh pr ready`, no self-merge, no production, no staging dispatch.
 
 ## Gate and merge
 
