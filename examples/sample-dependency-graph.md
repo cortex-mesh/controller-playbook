@@ -4,6 +4,12 @@ Fictional wave. Each phase is one graph node, one PR, and one mergeable outcome.
 Two tracks may run in parallel because they do not share files. Staging waits
 for both merges and is CoS-only.
 
+Machine-checkable YAML: [sample-dependency-graph.yaml](sample-dependency-graph.yaml)
+([schema](living-graph.schema.yaml)). Lint with `scripts/graph-lint`. Infer
+`DISPATCHED` / `AWAITING GATE` / `DEAD` with `scripts/track-status`. This
+markdown table is the human snapshot — update both when the wave moves.
+A missing tmux pane is not a re-dispatch if a draft PR exists.
+
 Phase 0 is a short phased ADR (stack, tenancy) because the *shape* of the
 system is new. It lists Phases 1–2 so later tracks cannot collapse API+UI into
 one PR. A rename or lockfile bump would not get an ADR.

@@ -1,0 +1,53 @@
+# Living graph — Harbor v1 (fictional).
+# Human snapshot: sample-dependency-graph.md
+# Schema: living-graph.schema.yaml
+# Lint: scripts/graph-lint
+# Status: scripts/track-status
+# Placeholders only. No names, IPs, or real hosts.
+
+schema: living-graph/v1
+goal: Harbor v1
+snapshot: examples/sample-dependency-graph.md
+nodes:
+  - id: harbor-docs
+    phase: 0
+    outcome: stack and tenancy ADRs accepted; Phases 1-2 named so later tracks cannot collapse API+UI
+    files:
+      - docs/adr/**
+    pr: ~
+    head_sha: ~
+    state: MERGED
+    review_rounds: 0
+    over_cap: false
+    branch: feat/harbor-docs
+    tmux: gone
+
+  - id: harbor-berth-api
+    phase: 1
+    outcome: slips + reservations CRUD and conflict rule
+    files:
+      - src/api/**
+      - src/lib/berths.ts
+    pr: example-app#12
+    head_sha: abc1234
+    state: AWAITING GATE
+    review_rounds: 0
+    over_cap: false
+    branch: feat/berth-api
+    tmux: gone
+    comment_url: https://github.com/example/example-app/pull/12#pullrequestreview-1
+    host: dev-2
+
+  - id: harbor-operator-ui
+    phase: 2
+    outcome: list slips, create reservation, show conflicts
+    files:
+      - src/ui/**
+    pr: example-app#13
+    head_sha: def5678
+    state: DISPATCHED
+    review_rounds: 0
+    over_cap: false
+    branch: feat/operator-ui
+    tmux: alive
+    host: ci-box

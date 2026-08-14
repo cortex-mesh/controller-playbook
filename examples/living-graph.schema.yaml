@@ -1,0 +1,87 @@
+# Living dependency graph — JSON Schema (draft-07) in YAML.
+# Markdown snapshots stay for humans. Lint: scripts/graph-lint.
+# Infer DISPATCHED / AWAITING GATE / DEAD: scripts/track-status.
+# No names, IPs, or real host inventory in a public graph.
+
+$schema: http://json-schema.org/draft-07/schema#
+title: Living dependency graph
+type: object
+required: [schema, nodes]
+additionalProperties: true
+properties:
+  schema:
+    const: living-graph/v1
+  goal:
+    type: string
+  snapshot:
+    type: string
+    description: Path to the human markdown snapshot.
+  nodes:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/definitions/node"
+definitions:
+  node:
+    type: object
+    required: [id, phase, outcome, files, pr, head_sha, state, review_rounds]
+    additionalProperties: true
+    not:
+      required: [outcomes]
+    properties:
+      id:
+        type: string
+        minLength: 1
+        pattern: "^[a-z0-9][a-z0-9-]*$"
+      phase:
+        oneOf:
+          - {type: integer, minimum: 0}
+          - {type: string, minLength: 1}
+      outcome:
+        type: string
+        minLength: 1
+        description: Exactly one mergeable outcome. Not a list.
+      files:
+        type: array
+        minItems: 1
+        items: {type: string, minLength: 1}
+        description: File globs this node owns. In-flight globs must not overlap.
+      pr:
+        type: ["string", "null"]
+        description: Draft PR (owner/repo#n, repo#n, n, or URL). Empty/null if none.
+      head_sha:
+        type: ["string", "null"]
+      state:
+        type: string
+        enum:
+          - PENDING
+          - AWAITING LOGIN
+          - DISPATCHED
+          - IMPLEMENTING
+          - CI
+          - AWAITING GATE
+          - AWAITING SPLIT
+          - REVISE
+          - MERGED
+          - DEAD
+      review_rounds:
+        type: integer
+        minimum: 0
+        maximum: 3
+      over_cap:
+        type: boolean
+        description: True when added product lines are ≥800. Cannot be AWAITING GATE.
+      added_product_lines:
+        type: integer
+        minimum: 0
+      branch:
+        type: string
+      tmux:
+        type: string
+        description: Session name, or gone / alive as a recorded fact.
+      comment_url:
+        type: string
+        description: COMMENT review URL on this head. Not an Approve.
+      host:
+        type: string
+        description: Placeholder worker name (dev-1, ci-box). Never a real inventory.

@@ -31,6 +31,8 @@ Size is the backstop. Grouping is the method.
 
 The CoS writes phases **before dispatch**, in the living graph and the goal prompt. Each phase is one graph node, one PR, and one mergeable outcome a reviewer can hold in their head.
 
+The living graph is YAML ([schema](../examples/living-graph.schema.yaml), [Harbor example](../examples/sample-dependency-graph.yaml)). The markdown table is the human snapshot. Before a wave, run `scripts/graph-lint` on the YAML. Lint fails on a missing required field, two outcomes on one node, overlapping in-flight file globs, REVISE rounds above 3, or an over-cap / `AWAITING SPLIT` node marked `AWAITING GATE`.
+
 **Mapping:** phase N → graph node → one PR → one outcome.
 
 A worker implements this phase only. Do not add a second outcome to the same PR. If the change set is "the whole feature," it is already too big: split into phases before anyone codes.
@@ -55,7 +57,7 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 ## Dispatch checklist
 
 1. Read the goal progress log. Name the next incomplete **worker** phase (one graph node, one PR, one outcome). Do not dispatch staging or last integration.
-2. Confirm the track is unblocked in the dependency graph.
+2. Confirm the track is unblocked in the dependency graph. Run `scripts/graph-lint` on the YAML before the wave.
 3. Confirm blast radius is one subsystem / one outcome. Two subsystems or two outcomes is already two tracks — write the split in the graph first.
 4. Run `scripts/fleet-preflight` against the **local** pool file (argv or `FLEET_POOL`). Resolve live; do not reuse a remembered IP. Pick the `recommended:` free logged-in host.
 5. `login-needed` is AWAITING LOGIN, not down — skip that host, re-pick, and write the new owner into the graph. A timeout is not "no hosts"; finish the table. Leftover tmux panes without a live implementer process are not busy.
@@ -65,7 +67,7 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 
 If the controller cannot paste into tmux, write the instruction to a file and send a short Read of that file.
 
-A missing tmux pane is not a dead track. Infer `AWAITING GATE` from git/PR: draft PR + COMMENT on this head + SHA. Do not re-dispatch.
+A missing tmux pane is not a dead track. Run `scripts/track-status` and infer `DISPATCHED` / `AWAITING GATE` / `DEAD` from git, PR, and tmux facts. A missing pane is not a re-dispatch if a draft PR exists. Infer `AWAITING GATE` from draft PR + COMMENT on this head + SHA.
 
 If dispatch fails, escalate dispatch. The CoS does not implement.
 
@@ -178,7 +180,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
 
 ```text
 Thu Aug 13, 2026, 6:45:00 AM PT
