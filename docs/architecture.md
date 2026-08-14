@@ -69,8 +69,9 @@ sequenceDiagram
   CoS->>CoS: write dependency graph
   CoS->>Worker: dispatch next incomplete worker phase
   Worker->>Worker: implement in dedicated worktree
-  Worker->>Worker: lint, test, mutation-check
+  Worker->>Worker: CI-equivalent check, mutation-check
   Worker->>GH: open draft pull request
+  Note over Worker,GH: COMMENT after this-SHA CI is green
   Worker->>Rev: different-family review on this head
   Rev->>GH: COMMENT review
   Worker->>CoS: AWAITING GATE plus COMMENT URL
@@ -107,7 +108,7 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 | Input contract | ADR-0001 accepted; schema from track A |
 | Overlaps | none with `harbor-web-shell` |
 | Gate class | repository |
-| Repo gate | lint, test, COMMENT, CI on this SHA |
+| Repo gate | CI-equivalent check, COMMENT after this-SHA CI, CI on this SHA |
 | Staging gate | CoS-only after merge; live GET `/health` |
 | CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, merge, staging verify |
 

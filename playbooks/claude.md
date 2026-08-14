@@ -19,8 +19,9 @@ This playbook's reviewer choice overrides any generic default in a launch skill.
 ```text
 dispatch precise task/goal
   → worker implements and verifies
+  → CI-equivalent check in the worktree; red = do not push
   → worker runs scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
-  → worker opens a draft PR and reports AWAITING GATE
+  → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → Claude CoS runs a fresh Opus review
   → REVISE with concrete findings, or GATE
   → serialize merge → staging → live-verify
@@ -38,7 +39,7 @@ codex -m gpt-5.6-terra \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if green. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff. COMMENT only after this-SHA CI is green. See playbooks/general.md#cicd."
 ```
 
 Unattended:
@@ -48,7 +49,7 @@ codex exec -m gpt-5.6-terra \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if green. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff. COMMENT only after this-SHA CI is green. See playbooks/general.md#cicd."
 ```
 
 A Claude CLI worker is only valid if it is **not** the Opus reviewer family. If you implement with Opus, pick another playbook's reviewer. Prefer Codex on this path.

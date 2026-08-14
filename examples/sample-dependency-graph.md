@@ -42,7 +42,7 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Head SHA | `abc1234` (pinned `commit_id`) | `def5678` (pinned `commit_id`) |
 | COMMENT URL | `https://github.com/example/example-app/pull/12#pullrequestreview-1` | pending worker COMMENT on this head |
 | Gate class | repository | repository |
-| Repo gate | lint, test, mutation on conflicts, COMMENT, CI | lint, test, COMMENT, CI |
+| Repo gate | CI-equivalent check, mutation on conflicts, COMMENT after this-SHA CI | CI-equivalent check, COMMENT after this-SHA CI |
 | Staging gate | CoS-only after both merges; `GET /health` | CoS-only after both merges; create reservation in UI |
 | CoS may do | rebase, confirm COMMENT, `gh pr ready`, merge, staging verify | same |
 | Human only | production DNS, prod secrets | production DNS, prod secrets |

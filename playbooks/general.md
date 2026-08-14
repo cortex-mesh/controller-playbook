@@ -41,8 +41,9 @@ Use a short phased ADR only when the *shape* of the system changes (new runtime,
 ```text
 CoS writes phases (graph + goal prompt) → dispatch each unblocked track
   → worker implements this phase's one outcome
+  → CI-equivalent check in the worktree; red = do not push
   → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
-  → draft PR, then COMMENT, AWAITING GATE
+  → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh reviewer COMMENT
   → REVISE or GATE → CoS marks ready → serialize merge → CoS staging → live-verify
@@ -72,15 +73,29 @@ If dispatch fails, escalate dispatch. The CoS does not implement.
 - Implement only this phase's one outcome. Do not smuggle a second outcome into the same PR. If the phase is already two outcomes, report `AWAITING SPLIT` with a proposed split.
 - Implement only in its worktree.
 - Exercise the real caller path, not a mock of the mock.
-- Run the repo's lint, test, typecheck, and build.
+- Run the product repo's CI-equivalent check in this worktree (see [CI/CD](#cicd)). Push and open a draft only if it is green. Fail = do not push, do not open the draft.
 - Mutation-test new tests: revert the fix, the test must fail.
 - Before opening a draft PR, run `scripts/pr-size-check` (see [PR size](#pr-size)). If it exits non-zero / prints `AWAITING SPLIT`, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split.
 - Open a **draft** PR only when it is still one outcome and under the hard cap. Never `gh pr ready`.
-- Run the reviewer CLI from a clean tree. Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff.
+- After current-head CI is green on this SHA, run the reviewer CLI from a clean tree. Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff.
 - Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
 - Stop. Never self-merge. Never ship production. Never start staging.
 
 Do not revert a correct fix to satisfy a stale test. Update the test and prove it fails without the fix.
+
+## CI/CD
+
+The **product repo** owns the check command that CI runs. Prefer `make check`. If there is no such target, use the exact commands from that repo's CI workflow. GitHub Actions (or the product CI) must call that same target so the lists cannot drift. Do not copy a product Makefile into this playbook repo.
+
+**Worker.** Run that command **in the assigned worktree**. Push only if it is green. Fail = do not push, do not open the draft. Do not substitute a looser local subset (`make lint` alone, a single formatter, one test file).
+
+Git hooks are optional extra, not the control. Unattended workers may skip hooks (`git push --no-verify` or a permission bypass). The worker must invoke the gate itself.
+
+If the product repo has no `make check` and no CI, say so in the `AWAITING GATE` report. Do not invent a subset.
+
+**Review.** COMMENT starts only after current-head CI is green on this SHA. GATE already requires exact-head CI. If the repo has no CI, say so in `AWAITING GATE` and continue to COMMENT.
+
+**Merge is not deploy.** Staging is CoS-only after default-branch CI. Production is human.
 
 ## PR size
 
@@ -104,7 +119,7 @@ scripts/pr-size-check
 
 ## Review
 
-Resolve `<default>` from this repo; do not assume `main`. Tee the verdict outside the repo (`$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md` or `$HOME/.grok/reviews/...`). Check the reviewer exit status. Pin `commit_id` to the exact head. Abort if the live head is not that SHA. Never interpolate the verdict into `--body`. Never Approve.
+Start COMMENT only after current-head CI is green on this SHA (see [CI/CD](#cicd)). Resolve `<default>` from this repo; do not assume `main`. Tee the verdict outside the repo (`$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md` or `$HOME/.grok/reviews/...`). Check the reviewer exit status. Pin `commit_id` to the exact head. Abort if the live head is not that SHA. Never interpolate the verdict into `--body`. Never Approve.
 
 ```sh
 DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \

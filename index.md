@@ -43,7 +43,7 @@ flowchart TD
 1. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
 2. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
 3. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
-4. The worker implements **this phase**, proves it, opens a **draft PR**, runs a different-family review, and reports `AWAITING GATE`.
+4. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
 5. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then merges one PR at a time.
 6. Staging is live-verified. Production is a human step.
 

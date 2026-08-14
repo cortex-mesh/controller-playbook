@@ -40,7 +40,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check and no CI, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -60,7 +60,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Run the product repo CI-equivalent check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE. COMMENT only after this-SHA CI is green.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
