@@ -39,8 +39,9 @@ Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host doe
 ```text
 CoS writes phases (graph + goal prompt) → dispatch each unblocked track
   → grok-4.6 implements this phase's one outcome (headless -p, then --continue)
+  → CI-equivalent check in the worktree; red = do not push
   → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
-  → draft PR, then Sol/high COMMENT, AWAITING GATE
+  → draft PR; this-SHA CI green; then Sol/high COMMENT, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh Sol/high COMMENT
   → REVISE or GATE → CoS marks ready → serialize merge → CoS staging → live-verify
@@ -50,7 +51,9 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 
 Implement only this phase's one outcome. Do not smuggle a second outcome into the same PR. If the phase is already two outcomes, report `AWAITING SPLIT` with a proposed split.
 
-Before opening a draft PR, run `scripts/pr-size-check`. Over cap (exit 2 / `AWAITING SPLIT`): do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method.
+In the assigned worktree, run the product repo CI-equivalent check (`make check`, or the exact commands from that repo CI). Push only if it is green. Fail = do not push, do not open the draft. Do not use a looser local subset. If the repo has no `make check`, or CI does not run on this SHA, say so in `AWAITING GATE`. See [CI/CD](general.md#cicd).
+
+Before opening a draft PR, run `scripts/pr-size-check`. Over cap (exit 2 / `AWAITING SPLIT`): do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method. COMMENT starts only after current-head CI is green on this SHA.
 
 ## Dispatch
 
@@ -67,7 +70,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -85,7 +88,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Run the product repo CI-equivalent check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE. COMMENT only after this-SHA CI is green.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
@@ -138,9 +141,9 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 
 1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check` (mechanical [PR size](general.md#pr-size) check). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check; rebase; serialize merges.
-3. If rebase moved the SHA, repeat the size check on the new head, then run a fresh COMMENT review on the new head.
+3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm COMMENT exists for **this** head.
-5. Exact-head CI.
+5. Exact-head CI, or the report that no current-head run exists.
 6. Read the verdict.
 7. After GATE, the CoS marks the draft ready (`gh pr ready`) and serializes merge. Workers never `gh pr ready`.
 

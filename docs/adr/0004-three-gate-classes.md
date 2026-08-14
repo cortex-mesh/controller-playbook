@@ -11,7 +11,7 @@ Teams collapse "tests passed," "it is on staging," and "customers can use it" in
 
 Three gate classes, kept separate:
 
-1. **Repository** — lint, tests, typecheck, build, mutation proof, COMMENT review, CI on this SHA. A PR with ≥800 added product lines (excluding lockfiles, generated output, snapshots, and `vendor/`) cannot complete this gate. File count alone does not fail this gate.
+1. **Repository** — the product repo's CI-equivalent check (`make check`, or the exact commands from that repo's CI; not a looser local subset), mutation proof, COMMENT review after current-head CI is green, CI on this SHA. A PR with ≥800 added product lines (excluding lockfiles, generated output, snapshots, and `vendor/`) cannot complete this gate. File count alone does not fail this gate.
 2. **Staging / integration** — merge order, staging deploy, live verification of the deployed revision.
 3. **Production** — secrets, paid resources, destructive migrations, traffic. Human only.
 
@@ -21,7 +21,8 @@ Workers may complete a repository gate and then stop at `AWAITING GATE`. A PR ov
 
 ## Consequences
 
-- A draft PR reports repository evidence, not a claim that production is live.
+- A draft PR reports repository evidence, not a claim that production is live. Merge does not deploy. Staging is CoS-only after default-branch CI. Production is human.
+- The product repo owns the check command. GitHub Actions (or the product CI) must call that same target. Workers run it in the assigned worktree and push only if it is green. Git hooks are optional extra, not the control. If the repo has no `make check`, or CI does not run on this SHA, say so in `AWAITING GATE` instead of inventing a subset. A worker that runs only `make lint`, a formatter, or one test file has not satisfied the repository gate.
 - Auto-deploy from default-branch CI is a staging concern. A red default-branch run can skip deploy with no PR failure; watch it.
 - Goal prompts list which actions the CoS may take without another human decision.
 - Sample goals and launch skills skip staging when naming the next incomplete worker phase.

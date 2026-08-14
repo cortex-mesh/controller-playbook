@@ -5,10 +5,14 @@ Workers: Grok CLI grok-4.6 on the **worker pool** (CoS assigns host at dispatch)
 
 Standing instruction: read this file, find the next incomplete **worker**
 phase (skip staging / last integration — CoS-only), execute it end-to-end,
-do not skip verification. Run `scripts/pr-size-check` before opening a
-draft PR. Over cap → `AWAITING SPLIT` (do not open a megadiff). Under cap:
-draft PR, then COMMENT. Report AWAITING GATE with branch, PR, head SHA,
-and COMMENT review URL. Never `gh pr ready`.
+do not skip verification. In the assigned worktree, run the product repo
+CI-equivalent check (`make check`, or the exact commands from that repo
+CI). Push only if it is green. Fail = do not push, do not open the draft.
+Run `scripts/pr-size-check` before opening a draft PR. Over cap →
+`AWAITING SPLIT` (do not open a megadiff). Under cap: draft PR, wait until
+CI is green on this SHA, then COMMENT. Report AWAITING GATE with branch,
+PR, head SHA, and COMMENT review URL. Never `gh pr ready`. If the product
+repo has no `make check`, or CI does not run on this SHA, say so in that report.
 
 This is a **fictional** product used to show the shape of a goal. Swap Harbor
 for your app. Replace `dev-1` / `dev-2` with your hosts. Do not copy a private
@@ -45,15 +49,17 @@ application code.
 ### Phase 1 — Berth API
 
 CRUD for slips and reservations. Conflict detection. Tests including a
-mutation check on the conflict rule. Run `scripts/pr-size-check`. Over
-cap → `AWAITING SPLIT`. Else draft PR, then COMMENT review,
-`AWAITING GATE`.
+mutation check on the conflict rule. Run the product repo CI-equivalent
+check; push only if green. Run `scripts/pr-size-check`. Over
+cap → `AWAITING SPLIT`. Else draft PR, wait for this-SHA CI, then COMMENT
+review, `AWAITING GATE`.
 
 ### Phase 2 — Operator UI
 
 List slips, create a reservation, show conflicts. Exercise the real API, not a
-fixture-only page. Run `scripts/pr-size-check`. Over cap → `AWAITING SPLIT`.
-Else draft PR, then COMMENT, `AWAITING GATE`.
+fixture-only page. Run the product repo CI-equivalent check; push only if
+green. Run `scripts/pr-size-check`. Over cap → `AWAITING SPLIT`.
+Else draft PR, wait for this-SHA CI, then COMMENT, `AWAITING GATE`.
 
 ### Phase 3 — Staging (CoS-only)
 
@@ -90,17 +96,20 @@ spend.
 
 ## Workflow (per PR)
 
-Dedicated git worktree. Conventional commits. Lint, test, build. Mutation-test
+Dedicated git worktree. Conventional commits. Product repo CI-equivalent
+check in the worktree (`make check`, or the exact commands from that repo
+CI — not a looser local subset). Push only if green. Mutation-test
 new tests. Run `scripts/pr-size-check` before the draft. Over cap →
 `AWAITING SPLIT`, do not open a megadiff. File count is a smell, not a fail.
-Else draft PR. Reviewer COMMENT on the pinned head. `AWAITING GATE`.
-Workers never `gh pr ready`. CoS marks ready after GATE and serializes merge.
-Staging is CoS-only.
+Else draft PR. Reviewer COMMENT on the pinned head after this-SHA CI is
+green. `AWAITING GATE`. Workers never `gh pr ready`. CoS marks ready after
+GATE and serializes merge. Staging is CoS-only.
 
 ## Verification (every worker phase)
 
 - `scripts/pr-size-check` exit 0 on this head (over cap is `AWAITING SPLIT`, not GATE).
-- Repo gates green on this SHA.
+- Product repo CI-equivalent check green in the worktree before push.
+- Repo gates / current-head CI green on this SHA.
 - COMMENT review URL posted on this head.
 - Staging is not a worker check. After the CoS deploys: live health check and
   one real caller path.

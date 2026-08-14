@@ -19,8 +19,8 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 2. **Write the goal long.** Short goals stall. Phase 0 is docs and ADRs. Later phases are code.
 3. **Graph before a wave.** Each track names repo, assigned host (after failover), tmux or gone, log path, branch, base SHA, draft PR, head SHA, COMMENT URL, inputs, overlaps, gate class, CoS-may-do, and login/preflight.
 4. **Dispatch to a free logged-in worker.** Check tmux and existing sessions first. Login is a per-host input. A logged-out host does not block the wave: re-pick and write the new owner into the graph. If dispatch fails, escalate; the CoS does not become the implementer.
-5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Mutation-test new tests. Skip staging — CoS-only.
-6. **Draft PR, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
+5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Run the product repo CI-equivalent check; push only if green. Mutation-test new tests. Skip staging — CoS-only.
+6. **Draft PR, wait for this-SHA CI, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
 7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`.
 8. **CoS repo gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
 9. **REVISE or GATE.** After GATE the CoS marks the draft ready and serializes overlapping merges. Watch default-branch CI after merge. Same blocker: evidence, one REVISE, then stop and escalate.
@@ -33,7 +33,7 @@ The CoS chat is authoritative. A watchdog may inspect, heartbeat, and take the n
 
 Keep them separate. Evidence from a later class must not block an earlier class.
 
-1. **Repository.** Lint, tests, typecheck, build, mutation proof, COMMENT review, CI green on **this** SHA.
+1. **Repository.** Product repo CI-equivalent check, mutation proof, COMMENT review after current-head CI is green, CI green on **this** SHA. See [playbooks/general.md](../playbooks/general.md#cicd).
 2. **Staging / integration.** Merge order, staging deploy, live checks against the deployed revision.
 3. **Production.** Secrets, paid resources, destructive migrations, traffic. Human only.
 
