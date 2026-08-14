@@ -49,8 +49,8 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 
 ## Split rules
 
-- Soft: two or more subsystems is already two tracks. Write that split in this table before anyone codes. A mixed "berth API + IAM + compose/runtime" wave is not one track.
-- Hard: ≥25 product files or ≥800 added product lines (see [general.md](../playbooks/general.md#pr-size)) is `AWAITING SPLIT`, not `AWAITING GATE`. Update this table and re-dispatch. There is no "justify the megadiff."
+- Soft: two or more subsystems is already two tracks. Write that split in this table before anyone codes. A mixed "berth API + IAM + compose/runtime" wave is not one track. File count is a graph smell, not a cap: split when the file list spans two or more subsystems, regardless of loc. High file count with a small product diff (renames, import paths) is still reviewable.
+- Hard: ≥800 added product lines (see [general.md](../playbooks/general.md#pr-size)) is `AWAITING SPLIT`, not `AWAITING GATE`. Update this table and re-dispatch. There is no "justify the megadiff." File count alone does not fail GATE.
 
 ## Merge order
 

@@ -48,7 +48,7 @@ CoS writes graph → dispatch each unblocked track to a free worker
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Do not name staging as the next incomplete phase.
 
-Before opening a draft PR, count product files and added product lines vs the default branch (exclusions in [general.md](general.md#pr-size)). If ≥25 product files or ≥800 added product lines, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the counts, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff."
+Before opening a draft PR, count added product lines vs the default branch (exclusions in [general.md](general.md#pr-size)). If ≥800 added product lines, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE.
 
 ## Dispatch
 
@@ -65,7 +65,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. Before opening a draft PR, count product files and added product lines vs the default branch (exclude lockfiles, generated output, snapshots, vendor). If ≥25 product files or ≥800 added product lines, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the counts, and a proposed split. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. Before opening a draft PR, count added product lines vs the default branch (exclude lockfiles, generated output, snapshots, vendor). If ≥800 added product lines, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -83,7 +83,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. Over the product-file cap: AWAITING SPLIT, do not open a megadiff PR.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. Over the product-line cap (≥800 added product lines): AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
@@ -134,7 +134,7 @@ Never Approve. Never review the PR in the same Grok session that wrote it. A fre
 
 Agent-side Sol/high is already the different-family check. Default CoS gate is **not** a second Sol pass on every low-risk diff:
 
-1. Size-check: `gh pr view --json changedFiles,additions` and/or `git diff --stat`. Confirm product counts (see [general.md](general.md#pr-size)). If over the hard cap, REVISE to split. Do not COMMENT-review a 50-file PR hoping Sol will save it. Do not GATE.
+1. Size-check: `gh pr view --json additions` and/or `git diff --stat`. Confirm the product-line count (see [general.md](general.md#pr-size)). If ≥800 added product lines, REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check; rebase; serialize merges.
 3. If rebase moved the SHA, run a fresh COMMENT review on the new head.
 4. Confirm COMMENT exists for **this** head.
