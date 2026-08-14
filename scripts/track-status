@@ -80,9 +80,9 @@ def default_graph():
     return sample if os.path.isfile(sample) else None
 
 
-def run(cmd, cwd=None):
+def run(cmd, cwd=None, env=None):
     try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
     except OSError:
         return "", 1
     return proc.stdout.strip(), proc.returncode
@@ -127,10 +127,18 @@ def probe_tmux(session):
     _, rc = run(["tmux", "has-session", "-t", session])
     if rc != 0:
         return False
-    out, rc = run(["tmux", "list-panes", "-t", session, "-F", "#{pane_dead}"])
-    if rc == 0 and out and all(p.strip() == "1" for p in out.splitlines()):
-        return "stale"
-    return True
+    out, rc = run(["tmux", "list-panes", "-t", session, "-F", "#{pane_dead} #{pane_current_command}"])
+    if rc != 0 or not out:
+        return True
+    shells = ("zsh", "bash", "sh", "fish", "tmux", "login", "dash")
+    for line in out.splitlines():
+        bits = line.split(None, 1)
+        if not bits or bits[0] == "1":
+            continue
+        cmd = (bits[1] if len(bits) > 1 else "").rsplit("/", 1)[-1].lower()
+        if cmd and cmd not in shells:
+            return True
+    return "stale"
 
 
 def probe_branch(repo, branch):
@@ -146,16 +154,37 @@ def probe_branch(repo, branch):
     return any(line == want for line in out.splitlines())
 
 
+def origin_repo(repo):
+    url, rc = run(["git", "-C", repo, "config", "--get", "remote.origin.url"])
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    url = url.rstrip("/")
+    parts = url.replace(":", "/").split("/")
+    if len(parts) >= 2:
+        return parts[-2] + "/" + parts[-1]
+    return parts[-1] if parts else None
+
+
 def probe_pr(repo, repo_ref, number):
     if number is None or not shutil.which("gh"):
         return None
+    origin = origin_repo(repo)
     if repo_ref and "/" not in repo_ref:
-        return None
+        if origin and repo_ref in (origin, origin.rsplit("/", 1)[-1]):
+            repo_ref = origin
+        else:
+            return None
     cmd = ["gh", "pr", "view", str(number),
            "--json", "number,isDraft,state,headRefOid,url,reviews"]
-    if repo_ref:
+    if repo_ref and "/" in repo_ref:
         cmd.extend(["-R", repo_ref])
-    out, rc = run(cmd, cwd=repo)
+    env = os.environ.copy()
+    env["GH_NO_COLOR"] = "1"
+    out, rc = run(cmd, cwd=repo, env=env)
+    out = re.sub(r"\x1b\[[0-9;]*m", "", out or "")
     if rc != 0 or not out:
         return None
     try:
