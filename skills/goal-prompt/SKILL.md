@@ -30,7 +30,9 @@ Workers: <implementer CLI and model> on the **worker pool** (CoS assigns host at
 
 Standing instruction: read this file, find the next incomplete **worker**
 phase (skip staging / last integration — CoS-only), execute it end-to-end,
-do not skip verification. Report AWAITING GATE with branch, PR, head SHA,
+do not skip verification. Run `scripts/pr-size-check` before opening a
+draft PR. Over cap → `AWAITING SPLIT` (do not open a megadiff). Under cap:
+draft PR, then COMMENT. Report AWAITING GATE with branch, PR, head SHA,
 and COMMENT review URL. Never `gh pr ready`.
 
 ## Goal
@@ -51,9 +53,9 @@ and COMMENT review URL. Never `gh pr ready`.
 - **Worker pool:** hosts, fit, max sessions. Placeholders: `dev-1`, `ci-box`, `user@host`. CoS picks a free host per track. Do not hard-code one machine as the only implementer unless the pool truly has one row.
 - **Phase 0** is always docs/ADRs. Code after. Staging / last integration is CoS-only; do not list it as a worker phase to execute.
 - **Model policy:** writer CLI writes. Review is a different family. `gh pr review --comment`, never Approve. Never tell the worker to review itself. A fresh Grok session is not an acceptable reviewer of a Grok implementation.
-- **Workflow:** git worktree per track; conventional commits; lint/test/build before push; mutation-test new tests; draft PR; then reviewer CLI on the pinned head; `AWAITING GATE`; workers never `gh pr ready`; CoS marks ready and serializes merges. No production dispatch.
+- **Workflow:** git worktree per track; conventional commits; lint/test/build before push; mutation-test new tests; run `scripts/pr-size-check` before the draft (over cap → `AWAITING SPLIT`, do not open a megadiff; file count is a smell, not a fail); draft PR; then reviewer CLI on the pinned head; `AWAITING GATE`; workers never `gh pr ready`; CoS marks ready and serializes merges. No production dispatch.
 - **Autonomy:** in-scope work does not stop to ask. Human-only: production, secret creation, destructive data, spend above the locked cap, interactive auth, DNS. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
-- **Heartbeat:** CoS every 10 minutes while implementing or in CI, dual timestamps, including "still working." `AWAITING GATE` is one immediate notice, then quiet until REVISE or GATE.
+- **Heartbeat:** CoS every 10 minutes while implementing or in CI, dual timestamps, including "still working." `AWAITING GATE` or `AWAITING SPLIT` is one immediate notice, then quiet until REVISE, GATE, or a graph update and re-dispatch.
 
 ## Hard rules
 

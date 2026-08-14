@@ -50,7 +50,7 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 
 Implement only this phase's one outcome. Do not smuggle a second outcome into the same PR. If the phase is already two outcomes, report `AWAITING SPLIT` with a proposed split.
 
-Before opening a draft PR, count added product lines vs the default branch (exclusions in [general.md](general.md#pr-size)). If ≥800 added product lines, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method.
+Before opening a draft PR, run `scripts/pr-size-check`. Over cap (exit 2 / `AWAITING SPLIT`): do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method.
 
 ## Dispatch
 
@@ -67,7 +67,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Before opening a draft PR, count added product lines vs the default branch (exclude lockfiles, generated output, snapshots, vendor). If this phase is two outcomes or ≥800 added product lines, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -85,7 +85,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Over the product-line cap (≥800 added product lines) or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
@@ -136,7 +136,7 @@ Never Approve. Never review the PR in the same Grok session that wrote it. A fre
 
 Agent-side Sol/high is already the different-family check. Default CoS gate is **not** a second Sol pass on every low-risk diff:
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Then `gh pr view --json additions` and/or the [PR size](general.md#pr-size) count (`git diff --numstat "$DEFAULT"...HEAD`, drop exclusions). A second outcome, or ≥800 added product lines, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
+1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check` (mechanical [PR size](general.md#pr-size) check). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check; rebase; serialize merges.
 3. If rebase moved the SHA, repeat the size check on the new head, then run a fresh COMMENT review on the new head.
 4. Confirm COMMENT exists for **this** head.
