@@ -28,6 +28,8 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Worktree | dedicated, not the shared checkout | dedicated, not the shared checkout |
 | Inputs | Phase 0 ADRs accepted | Phase 0 ADRs; API types from Track A **or** a stub contract ADR |
 | Overlapping files | `src/api/**`, `src/lib/berths.ts` | `src/ui/**` only |
+| Blast radius | one subsystem: berth API (`src/api/**`, `src/lib/berths.ts`) | one subsystem: operator UI (`src/ui/**`) |
+| Split | none — one outcome | none — one outcome |
 | Parallel? | yes, if the contract ADR is already merged | yes, same condition |
 | Draft PR | `example-app#12` (draft) | `example-app#13` (draft) |
 | Head SHA | `abc1234` (pinned `commit_id`) | `def5678` (pinned `commit_id`) |
@@ -44,6 +46,11 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 - If both tracks touch `package.json` or a generated client, serialize them.
 - After A merges, rebase B before review. Re-run COMMENT on the new head.
 - A missing tmux pane is not a dead track. Do not re-dispatch when git/PR already show draft + COMMENT on this SHA.
+
+## Split rules
+
+- Soft: two or more subsystems is already two tracks. Write that split in this table before anyone codes. A mixed "berth API + IAM + compose/runtime" wave is not one track.
+- Hard: ≥25 product files or ≥800 added product lines (see [general.md](../playbooks/general.md#pr-size)) is `AWAITING SPLIT`, not `AWAITING GATE`. Update this table and re-dispatch. There is no "justify the megadiff."
 
 ## Merge order
 

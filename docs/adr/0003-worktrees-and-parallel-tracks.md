@@ -13,11 +13,12 @@ Two agents in one checkout overwrite each other. Two agents on overlapping files
 - Never implement in the shared default-branch checkout.
 - Parallelize tracks only when files, generated interfaces, and merge slots do not overlap.
 - If two tracks must touch the same files, run them in series or split the shared contract into an accepted ADR first.
+- If a track would touch two or more subsystems, it is already two tracks. Write that split in the living graph before anyone codes.
 - Prefer spreading tracks across hosts. One laptop may still run serial tracks in separate worktrees.
 
 ## Consequences
 
-- Dispatch requires a dependency graph that names overlaps before a wave starts.
+- Dispatch requires a dependency graph that names overlaps and blast radius before a wave starts. Soft split happens in the graph, not as a post-hoc justification of a megadiff.
 - The CoS clobber-checks before merge and rebases onto the latest default branch.
 - Tooling that claims to create a worktree in headless mode is not a substitute for `git worktree add`.
 - v1 of a strip-gated public repo should not run parallel writers on the same tree.
