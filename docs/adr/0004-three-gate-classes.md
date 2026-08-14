@@ -17,10 +17,11 @@ Three gate classes, kept separate:
 
 Production-only evidence must not block a repository PR merely because production does not exist yet. Production evidence remains mandatory before traffic.
 
-Workers may complete a repository gate. The CoS owns staging live-verify. Humans own production.
+Workers may complete a repository gate and then stop at `AWAITING GATE`. Staging / last integration is CoS-only. Goal prompts and launch skills must not dispatch staging as the next incomplete phase. Humans own production.
 
 ## Consequences
 
 - A draft PR reports repository evidence, not a claim that production is live.
 - Auto-deploy from default-branch CI is a staging concern. A red default-branch run can skip deploy with no PR failure; watch it.
 - Goal prompts list which actions the CoS may take without another human decision.
+- Sample goals and launch skills skip staging when naming the next incomplete worker phase.

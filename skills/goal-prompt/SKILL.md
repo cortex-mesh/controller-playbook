@@ -5,7 +5,7 @@ description: Author or revise a standing goal prompt for a Chief of Staff plus w
 
 # Author a goal prompt
 
-A goal prompt is a self-contained document that a CoS and its workers re-read every session: find the next incomplete phase, execute it, update the progress log. It must survive as the only context a fresh session has.
+A goal prompt is a self-contained document that a CoS and its workers re-read every session: find the next incomplete worker phase (skip staging), execute it, update the progress log. It must survive as the only context a fresh session has.
 
 Write them **long**. Short goals stall. Lock human decisions as `D1`, `D2`, … so workers do not re-litigate them.
 
@@ -28,9 +28,10 @@ For a Grok Bot CoS, also use [`grok-goal-prompt`](../grok-goal-prompt/SKILL.md).
 _<date> · Owner: <human> · CoS: **<name>** ·
 Workers: <implementer CLI and model> on the **worker pool** (CoS assigns host at dispatch)_
 
-Standing instruction: read this file, find the next incomplete phase, execute
-it end-to-end, do not skip verification. Report AWAITING GATE with branch, PR,
-head SHA, and COMMENT review URL.
+Standing instruction: read this file, find the next incomplete **worker**
+phase (skip staging / last integration — CoS-only), execute it end-to-end,
+do not skip verification. Report AWAITING GATE with branch, PR, head SHA,
+and COMMENT review URL. Never `gh pr ready`.
 
 ## Goal
 ## Decisions already made (<human>, <date>)   — D1..Dn
@@ -48,11 +49,11 @@ head SHA, and COMMENT review URL.
 ## Section rules
 
 - **Worker pool:** hosts, fit, max sessions. Placeholders: `dev-1`, `ci-box`, `user@host`. CoS picks a free host per track. Do not hard-code one machine as the only implementer unless the pool truly has one row.
-- **Phase 0** is always docs/ADRs. Code after.
-- **Model policy:** writer CLI writes. Review is a different family in a fresh session. `gh pr review --comment`, never Approve. Never tell the worker to review itself in the writing session.
-- **Workflow:** git worktree per track; conventional commits; lint/test/build before push; mutation-test new tests; draft PR; reviewer CLI; `AWAITING GATE`; CoS serializes merges. No production dispatch.
-- **Autonomy:** in-scope work does not stop to ask. Human-only: production, secret creation, destructive data, spend above the locked cap, interactive auth, DNS.
-- **Heartbeat:** CoS every 10 minutes while tracks run, timestamped, including "still working."
+- **Phase 0** is always docs/ADRs. Code after. Staging / last integration is CoS-only; do not list it as a worker phase to execute.
+- **Model policy:** writer CLI writes. Review is a different family. `gh pr review --comment`, never Approve. Never tell the worker to review itself. A fresh Grok session is not an acceptable reviewer of a Grok implementation.
+- **Workflow:** git worktree per track; conventional commits; lint/test/build before push; mutation-test new tests; draft PR; then reviewer CLI on the pinned head; `AWAITING GATE`; workers never `gh pr ready`; CoS marks ready and serializes merges. No production dispatch.
+- **Autonomy:** in-scope work does not stop to ask. Human-only: production, secret creation, destructive data, spend above the locked cap, interactive auth, DNS. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
+- **Heartbeat:** CoS every 10 minutes while implementing or in CI, dual timestamps, including "still working." `AWAITING GATE` is one immediate notice, then quiet until REVISE or GATE.
 
 ## Hard rules
 

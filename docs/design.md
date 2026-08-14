@@ -8,8 +8,8 @@ How a Chief of Staff, a worker pool, and a different-family reviewer ship a prod
 | --- | --- | --- |
 | **Human operator** | Goal, spend, secrets, DNS, production, unresolved product choices | Day-to-day implementation once decisions are locked |
 | **Chief of Staff (CoS)** | Goal prompt, dependency graph, dispatch, gates, merge order, staging live-verify, heartbeat | Writing the feature in the same turn that gates it |
-| **Worker** | One track, one worktree, one phase: implement, prove, draft PR, request review | Self-merge, production, inventing new gates |
-| **Reviewer** | A fresh session in a **different model family** than the writer. Posts a GitHub `COMMENT` | Approve, Request changes, or rubber-stamping the implementer |
+| **Worker** | One track, one worktree, one phase: implement, prove, draft PR, request review | Self-merge, `gh pr ready`, production, inventing new gates, staging dispatch |
+| **Reviewer** | A fresh session in a **different model family** than the writer. Posts a GitHub `COMMENT`. A fresh Grok session is not an acceptable reviewer of a Grok implementation. | Approve, Request changes, or rubber-stamping the implementer |
 
 Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are steps. One CoS per standing product goal. If two controllers must share a goal, use a shared thread, not a specialist swarm.
 
@@ -17,14 +17,14 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 
 1. **Lock decisions.** Number them (`D1`, `D2`, …). Workers do not re-litigate them.
 2. **Write the goal long.** Short goals stall. Phase 0 is docs and ADRs. Later phases are code.
-3. **Graph before a wave.** Each track names repo, host, branch, base SHA, inputs, overlaps, and gate class.
-4. **Dispatch to a free worker.** Check tmux and existing sessions first. Skip a busy or logged-out host.
-5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Mutation-test new tests.
-6. **Draft PR + COMMENT review.** Different family from the writer. Never Approve.
-7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks.
+3. **Graph before a wave.** Each track names repo, assigned host (after failover), tmux or gone, log path, branch, base SHA, draft PR, head SHA, COMMENT URL, inputs, overlaps, gate class, CoS-may-do, and login/preflight.
+4. **Dispatch to a free logged-in worker.** Check tmux and existing sessions first. Login is a per-host input. A logged-out host does not block the wave: re-pick and write the new owner into the graph. If dispatch fails, escalate; the CoS does not become the implementer.
+5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Mutation-test new tests. Skip staging — CoS-only.
+6. **Draft PR, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
+7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`.
 8. **CoS repo gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
-9. **REVISE or merge.** Serialize overlapping merges. Watch default-branch CI after merge.
-10. **Staging gate.** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
+9. **REVISE or GATE.** After GATE the CoS marks the draft ready and serializes overlapping merges. Watch default-branch CI after merge. Same blocker: evidence, one REVISE, then stop and escalate.
+10. **Staging gate (CoS-only).** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
 11. **Human production.** Workers never dispatch production.
 
 The CoS chat is authoritative. A watchdog may inspect, heartbeat, and take the next already-authorized repo-safe step. It may not invent gates, merge production, or retry an unresolved escalation forever.
@@ -56,7 +56,7 @@ See [ADR 0003](adr/0003-worktrees-and-parallel-tracks.md).
 3. The worker posts the different-family COMMENT. The CoS re-reviews high-risk diffs only (schema, auth, migration, security, data-write, or a thin pre-review).
 4. Live-verify staging. Green CI is not enough.
 5. Phase the worker with resume/continue. Do not pretend one shot is an immortal session.
-6. One CoS per standing goal. Heartbeat every 10 minutes while any track is running.
+6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. `AWAITING GATE` is one notice, then quiet until REVISE or GATE.
 
 ## Human-stop list
 
@@ -64,7 +64,7 @@ Stop and ask a human before any of the following:
 
 - Production deploy, traffic enablement, or rollback against production data
 - Creating secrets, paid cloud resources, or new credentials
-- DNS and other domain changes
+- DNS and other domain changes. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 - Destructive data changes or irreversible migrations
 - Changing locked goal decisions (`D1`…)
 - Merging without a COMMENT review on **this** head

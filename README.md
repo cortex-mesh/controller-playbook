@@ -4,7 +4,7 @@ A public method for shipping products with a **Chief of Staff** plus a **pool of
 
 This repository is the method. It is not a personal fleet inventory: no names, no IPs, no private host tables. The same loop runs on a laptop or on many machines.
 
-Site: [playbook.cortexagents.ai](https://playbook.cortexagents.ai). DNS is applied by the operator; this repo only ships the `CNAME` file.
+Site: [playbook.cortexagents.ai](https://playbook.cortexagents.ai). DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 
 ## Why this route
 
@@ -85,7 +85,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 ## Pages
 
-GitHub Pages deploys from `main` via [`.github/workflows/pages.yml`](.github/workflows/pages.yml). The `CNAME` file is exactly `playbook.cortexagents.ai`. Enabling the custom domain and applying DNS are operator steps. This repository does not change DNS.
+GitHub Pages deploys from `main` via [`.github/workflows/pages.yml`](.github/workflows/pages.yml). The `CNAME` file is exactly `playbook.cortexagents.ai`. Enabling the custom domain and applying DNS are operator steps at the registrar or dashboard. This repository does not change DNS. `wrangler dns` does not exist.
 
 ## License
 

@@ -1,7 +1,7 @@
 # Sample dependency graph — Harbor v1
 
 Fictional wave. Two tracks may run in parallel because they do not share files.
-Staging waits for both merges.
+Staging waits for both merges and is CoS-only.
 
 ```mermaid
 flowchart LR
@@ -9,24 +9,33 @@ flowchart LR
   P0 --> T2[Track B - operator UI]
   T1 --> MergeA[Merge A first if types are shared]
   T2 --> MergeB[Merge B]
-  MergeA --> Stage[Staging deploy]
+  MergeA --> Stage[Staging deploy - CoS only]
   MergeB --> Stage
   Stage --> Human[Human production]
 ```
 
+Living snapshot after dispatch. Update these fields in place as the wave moves.
+
 | Field | Track A | Track B |
 | --- | --- | --- |
 | Name | `harbor-berth-api` | `harbor-operator-ui` |
-| Host | `dev-1` | `dev-2` |
+| Assigned host | `dev-2` (failover from `dev-1`) | `ci-box` |
+| Login / preflight | `dev-1` logged out — skipped. `dev-2`: `grok` + `gh` logged in | `ci-box`: `grok` + `gh` logged in |
+| Tmux | gone — infer GATE from git/PR; do not re-dispatch | alive, `remain-on-exit` on |
+| Log path | `$HOME/.grok/logs/harbor-berth-api.log` | `$HOME/.grok/logs/harbor-operator-ui.log` |
 | Branch | `feat/berth-api` | `feat/operator-ui` |
 | Base SHA | default-branch tip at dispatch | default-branch tip at dispatch |
 | Worktree | dedicated, not the shared checkout | dedicated, not the shared checkout |
 | Inputs | Phase 0 ADRs accepted | Phase 0 ADRs; API types from Track A **or** a stub contract ADR |
 | Overlapping files | `src/api/**`, `src/lib/berths.ts` | `src/ui/**` only |
 | Parallel? | yes, if the contract ADR is already merged | yes, same condition |
+| Draft PR | `example-app#12` (draft) | `example-app#13` (draft) |
+| Head SHA | `abc1234` (pinned `commit_id`) | `def5678` (pinned `commit_id`) |
+| COMMENT URL | `https://github.com/example/example-app/pull/12#pullrequestreview-1` | pending worker COMMENT on this head |
+| Gate class | repository | repository |
 | Repo gate | lint, test, mutation on conflicts, COMMENT, CI | lint, test, COMMENT, CI |
-| Staging gate | after merge; `GET /health` | after merge; create reservation in UI |
-| CoS may do without a human | rebase, confirm COMMENT, merge, staging verify | same |
+| Staging gate | CoS-only after both merges; `GET /health` | CoS-only after both merges; create reservation in UI |
+| CoS may do | rebase, confirm COMMENT, `gh pr ready`, merge, staging verify | same |
 | Human only | production DNS, prod secrets | production DNS, prod secrets |
 
 ## Clobber rules
@@ -34,11 +43,12 @@ flowchart LR
 - If Track B needs a type that Track A still owns, **do not** start B until that type lives in a merged ADR or a merged API package.
 - If both tracks touch `package.json` or a generated client, serialize them.
 - After A merges, rebase B before review. Re-run COMMENT on the new head.
+- A missing tmux pane is not a dead track. Do not re-dispatch when git/PR already show draft + COMMENT on this SHA.
 
 ## Merge order
 
-1. Track A if it owns the HTTP contract.
-2. Track B.
+1. Track A if it owns the HTTP contract. CoS marks the draft ready after GATE.
+2. Track B. Same. Workers never `gh pr ready`.
 3. Watch default-branch CI.
-4. Deploy staging at the merged SHA.
+4. CoS deploys staging at the merged SHA. Do not dispatch staging as a worker phase.
 5. Live-verify. Stop. Production is not in this wave.
