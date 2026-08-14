@@ -83,7 +83,7 @@ Return `REVISE` with file, line, failure scenario, expected correction, and requ
 
 ## Gate and merge
 
-Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA. Serialize overlapping merges. Live-verify staging. Production remains human-run.
+Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA, or that no current-head run exists. Serialize overlapping merges. Live-verify staging. Production remains human-run.
 
 ## Heartbeat
 

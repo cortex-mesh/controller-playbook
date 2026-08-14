@@ -35,6 +35,6 @@ Workers: Grok CLI grok-4.6 on the **worker pool** (CoS assigns host at dispatch)
 - One CoS Bot per standing product goal.
 - Heartbeat is a 10-minute Bot routine while implementing or in CI, not a 15- or 30-minute quiet poll. `AWAITING GATE` or `AWAITING SPLIT` is one notice, then quiet until REVISE, GATE, or a graph update and re-dispatch.
 - Do not dispatch staging as the next incomplete phase. Workers never `gh pr ready`.
-- In the assigned worktree, run the product repo CI-equivalent check (`make check`, or the exact commands from that repo CI). Push only if it is green. COMMENT only after this-SHA CI is green. If the repo has no `make check` and no CI, say so in `AWAITING GATE`. See [playbooks/general.md](../../playbooks/general.md#cicd).
+- In the assigned worktree, run the product repo CI-equivalent check (`make check`, or the exact commands from that repo CI). Push only if it is green. COMMENT only after this-SHA CI is green. If the repo has no `make check`, or CI does not run on this SHA, say so in `AWAITING GATE`. See [playbooks/general.md](../../playbooks/general.md#cicd).
 - Run `scripts/pr-size-check` before opening a draft PR. Over cap → `AWAITING SPLIT`, do not open a megadiff, do not COMMENT-review it. File count is a smell, not a fail.
 - If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.

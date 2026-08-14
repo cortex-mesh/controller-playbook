@@ -37,7 +37,7 @@ Run `scripts/pr-size-check` before opening a draft PR. Over cap →
 `AWAITING SPLIT` (do not open a megadiff). Under cap: draft PR, wait until
 CI is green on this SHA, then COMMENT. Report AWAITING GATE with branch,
 PR, head SHA, and COMMENT review URL. Never `gh pr ready`. If the product
-repo has no `make check` and no CI, say so in that report.
+repo has no `make check`, or CI does not run on this SHA, say so in that report.
 
 ## Goal
 ## Decisions already made (<human>, <date>)   — D1..Dn

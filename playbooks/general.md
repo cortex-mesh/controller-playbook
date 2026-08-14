@@ -91,9 +91,9 @@ The **product repo** owns the check command that CI runs. Prefer `make check`. I
 
 Git hooks are optional extra, not the control. Unattended workers may skip hooks (`git push --no-verify` or a permission bypass). The worker must invoke the gate itself.
 
-If the product repo has no `make check` and no CI, say so in the `AWAITING GATE` report. Do not invent a subset.
+If the product repo has no `make check`, or has no check that runs on this SHA (no CI, or CI that only fires on the default branch), say so in the `AWAITING GATE` report. Do not invent a subset.
 
-**Review.** COMMENT starts only after current-head CI is green on this SHA. GATE already requires exact-head CI. If the repo has no CI, say so in `AWAITING GATE` and continue to COMMENT.
+**Review.** COMMENT starts only after current-head CI is green on this SHA. GATE already requires exact-head CI. If there is no current-head CI run to wait for, say so in `AWAITING GATE` and continue to COMMENT.
 
 **Merge is not deploy.** Staging is CoS-only after default-branch CI. Production is human.
 
@@ -149,9 +149,9 @@ gh pr review "$PR" --comment --body-file "$VERDICT"
 
 1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check`. A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check against other live tracks. Rebase on the latest default branch.
-3. If rebase moved the SHA, repeat the size check on the new head, then run a fresh COMMENT review on the new head.
+3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm a COMMENT review exists for **this** head.
-5. CI green on this SHA.
+5. CI green on this SHA, or the report that no current-head run exists.
 6. Read the verdict. Do not merge on a grep for "no blocking."
 7. After GATE, mark the draft ready. Workers never run this. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
 
