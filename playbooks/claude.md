@@ -19,6 +19,7 @@ This playbook's reviewer choice overrides any generic default in a launch skill.
 ```text
 dispatch precise task/goal
   → worker implements and verifies
+  → worker runs scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
   → worker opens a draft PR and reports AWAITING GATE
   → Claude CoS runs a fresh Opus review
   → REVISE with concrete findings, or GATE
@@ -37,7 +38,7 @@ codex -m gpt-5.6-terra \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
 ```
 
 Unattended:
@@ -47,7 +48,7 @@ codex exec -m gpt-5.6-terra \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
 ```
 
 A Claude CLI worker is only valid if it is **not** the Opus reviewer family. If you implement with Opus, pick another playbook's reviewer. Prefer Codex on this path.

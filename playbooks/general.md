@@ -74,7 +74,7 @@ If dispatch fails, escalate dispatch. The CoS does not implement.
 - Exercise the real caller path, not a mock of the mock.
 - Run the repo's lint, test, typecheck, and build.
 - Mutation-test new tests: revert the fix, the test must fail.
-- Before opening a draft PR, count added product lines (see [PR size](#pr-size)). If ≥800, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split.
+- Before opening a draft PR, run `scripts/pr-size-check` (see [PR size](#pr-size)). If it exits non-zero / prints `AWAITING SPLIT`, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split.
 - Open a **draft** PR only when it is still one outcome and under the hard cap. Never `gh pr ready`.
 - Run the reviewer CLI from a clean tree. Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff.
 - Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
@@ -86,14 +86,11 @@ Do not revert a correct fix to satisfy a stale test. Update the test and prove i
 
 Product files = `git diff` vs the default branch, excluding lockfiles, generated output, and snapshots: `package-lock.json`, `go.sum`, `*.lock`, `dist/`, `generated/`, `**/__snapshots__/**`, and `vendor/` (already vendored).
 
-```sh
-DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
-  || echo origin/<default>)
-git diff --name-only "$DEFAULT"...HEAD
-git diff --numstat "$DEFAULT"...HEAD
-```
+**Mechanical check.** Workers and CoS run `scripts/pr-size-check` before `AWAITING GATE`. No network. It counts added product lines vs `origin/HEAD` (or this repo's default branch) after the exclusions above. Exit 0 if under 800. Exit 2 at ≥800 and prints `AWAITING SPLIT` plus counts. File count is still a smell, not a fail.
 
-Drop the excluded paths. Remaining added lines are product lines. Remaining files are the product file list (used to group by subsystem, not as a cap). `gh pr view --json additions` is a first screen: if the total is already under 800, the product-line count is under too. If over, subtract the excluded paths before deciding.
+```sh
+scripts/pr-size-check
+```
 
 **Grouping (graph, before dispatch).** One node = one outcome. The CoS writes phases in the living graph and the goal prompt before anyone codes. "The whole feature" is already two or more phases. A worker must not add a second outcome to the same PR.
 
@@ -103,7 +100,7 @@ Drop the excluded paths. Remaining added lines are product lines. Remaining file
 
 **File count is a graph smell, not a cap.** High file count with a small product diff (renames, import paths) is still reviewable. Low file count with a huge rewrite is not. If the file list spans two or more subsystems, split before dispatch regardless of loc.
 
-**Worker self-check.** Confirm one outcome. Then run the same product-line count. If this PR has a second outcome or ≥800 added product lines, do not open a megadiff PR; split first or report `AWAITING SPLIT`.
+**Worker self-check.** Confirm one outcome. Then run `scripts/pr-size-check`. If this PR has a second outcome or the check exits non-zero, do not open a megadiff PR; split first or report `AWAITING SPLIT`.
 
 ## Review
 
@@ -135,7 +132,7 @@ gh pr review "$PR" --comment --body-file "$VERDICT"
 
 ## CoS gate
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Then `gh pr view --json additions` and/or the [PR size](#pr-size) count (`git diff --numstat "$DEFAULT"...HEAD`, drop exclusions). A second outcome, or ≥800 added product lines, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
+1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check`. A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check against other live tracks. Rebase on the latest default branch.
 3. If rebase moved the SHA, repeat the size check on the new head, then run a fresh COMMENT review on the new head.
 4. Confirm a COMMENT review exists for **this** head.

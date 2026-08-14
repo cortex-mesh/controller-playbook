@@ -7,7 +7,7 @@ description: Launch, resume, or inspect one Grok CLI implementation track on a w
 
 Use this after the dependency graph says a track is unblocked. Full rules: [playbooks/grok.md](../../playbooks/grok.md).
 
-Do not dispatch staging or last integration. Those phases are CoS-only. Workers stop at `AWAITING GATE`.
+Do not dispatch staging or last integration. Those phases are CoS-only. Workers stop at `AWAITING GATE` or `AWAITING SPLIT`.
 
 ## Pick a host
 
@@ -40,7 +40,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. Open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -60,7 +60,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
@@ -75,4 +75,4 @@ Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. I
 - Confirm the pane is alive or the log has started. After `grok -p` exits, read the held pane or the log — do not treat a dead command as missing output.
 - A missing pane later is not a dead track. Infer GATE from git/PR. Do not re-dispatch.
 - Do not double-dispatch this host until the track reports GATE, block, or done.
-- Heartbeat every 10 minutes from the CoS routine while implementing or in CI. `AWAITING GATE` is one immediate notice, then quiet until CoS REVISE or GATE.
+- Heartbeat every 10 minutes from the CoS routine while implementing or in CI. `AWAITING GATE` or `AWAITING SPLIT` is one immediate notice, then quiet until CoS REVISE, GATE, or a graph update and re-dispatch.

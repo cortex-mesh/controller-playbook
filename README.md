@@ -62,7 +62,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, and the human-stop list.
 2. Read [docs/architecture.md](docs/architecture.md) for the architecture and one-track sequence.
 3. Choose a controller identity in [playbooks/README.md](playbooks/README.md).
-4. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path.
+4. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path. Those skills require `scripts/pr-size-check` before a draft PR: over cap is `AWAITING SPLIT`, not GATE.
 5. Author a goal from [examples/sample-goal-prompt.md](examples/sample-goal-prompt.md). Swap Harbor for your product. Replace `dev-1` / `dev-2` with your hosts.
 6. Keep a [meta-repo](docs/meta-repo.md) as a map, not as the product. Never publish a `.private/` directory.
 

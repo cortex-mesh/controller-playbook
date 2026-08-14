@@ -33,6 +33,7 @@ Workers: Grok CLI grok-4.6 on the **worker pool** (CoS assigns host at dispatch)
 - Never tell the worker to review the PR in the same Grok session that wrote it. A fresh Grok session is not an acceptable reviewer.
 - Pin `grok-4.6`. Do not float `grok`.
 - One CoS Bot per standing product goal.
-- Heartbeat is a 10-minute Bot routine while implementing or in CI, not a 15- or 30-minute quiet poll. `AWAITING GATE` is one notice, then quiet until REVISE or GATE.
+- Heartbeat is a 10-minute Bot routine while implementing or in CI, not a 15- or 30-minute quiet poll. `AWAITING GATE` or `AWAITING SPLIT` is one notice, then quiet until REVISE, GATE, or a graph update and re-dispatch.
 - Do not dispatch staging as the next incomplete phase. Workers never `gh pr ready`.
+- Run `scripts/pr-size-check` before opening a draft PR. Over cap → `AWAITING SPLIT`, do not open a megadiff, do not COMMENT-review it. File count is a smell, not a fail.
 - If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.

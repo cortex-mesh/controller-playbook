@@ -17,6 +17,7 @@ Pin the explicit model names. Do not float a generic alias, and do not use Opus 
 ```text
 dispatch precise task/goal
   → Terra/high implements and verifies
+  → scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
   → draft PR, AWAITING GATE
   → CoS runs fresh Sol/high review
   → REVISE or GATE
@@ -33,7 +34,7 @@ codex -m gpt-5.6-terra \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
 ```
 
 Unattended:
@@ -43,7 +44,7 @@ codex exec -m gpt-5.6-terra \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
-  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging."
+  "Read <absolute-goal-prompt-path> and execute the next incomplete worker phase end-to-end. Skip staging. Run scripts/pr-size-check before opening a draft. Over cap: AWAITING SPLIT, do not open a megadiff."
 ```
 
 Run in a named tmux session. Verify `codex --version` and `codex login status` before first use on a host. Never implement in the shared default-branch checkout.
@@ -87,7 +88,7 @@ Never Approve. Read the verdict and check material findings against the actual h
 
 ## Worker must
 
-Same handoff as [general.md](general.md): real caller path, repo gates, mutation tests, draft PR, then COMMENT, `AWAITING GATE`, no `gh pr ready`, no self-merge, no production, no staging dispatch.
+Same handoff as [general.md](general.md): real caller path, repo gates, mutation tests, `scripts/pr-size-check` before the draft (over cap → `AWAITING SPLIT`, do not open a megadiff), draft PR, then COMMENT, `AWAITING GATE`, no `gh pr ready`, no self-merge, no production, no staging dispatch.
 
 ## Gate and merge
 

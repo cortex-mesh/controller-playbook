@@ -1,0 +1,131 @@
+#!/bin/sh
+# Count added product lines vs the default branch.
+#
+# Usage (from any path in the repo, no network):
+#   scripts/pr-size-check
+#
+# Resolves the base as origin/HEAD, else this repo's default branch.
+# Compares the merge-base of that ref and HEAD to the working tree
+# (committed + staged + unstaged) and counts untracked files the same way.
+# Product files exclude lockfiles, generated output, snapshots, and vendor:
+#   package-lock.json, go.sum, *.lock, dist/, generated/,
+#   **/__snapshots__/**, vendor/
+#
+# Exit 0 if added product lines are under 800.
+# Exit 2 at ≥800 and print AWAITING SPLIT plus counts.
+# File count is printed as a smell; it does not fail the check.
+# Exit 1 on usage / repo errors.
+
+set -eu
+
+CAP=800
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+is_excluded() {
+  _path=$1
+  _fn=${_path##*/}
+  case "$_fn" in
+    package-lock.json|go.sum|*.lock) return 0 ;;
+  esac
+  case "$_path" in
+    dist|dist/*|*/dist|*/dist/*) return 0 ;;
+    generated|generated/*|*/generated|*/generated/*) return 0 ;;
+    __snapshots__|__snapshots__/*|*/__snapshots__|*/__snapshots__/*) return 0 ;;
+    vendor|vendor/*|*/vendor|*/vendor/*) return 0 ;;
+  esac
+  return 1
+}
+
+# True if $1 is a non-negative integer (git numstat added column).
+is_uint() {
+  case $1 in
+    ''|*[!0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  || die "pr-size-check: not a git repository"
+
+cd "$(git rev-parse --show-toplevel)" || die "pr-size-check: cannot cd to repo root"
+
+base=
+if git rev-parse --verify -q origin/HEAD >/dev/null; then
+  base=origin/HEAD
+else
+  for cand in origin/main origin/master main master; do
+    if git rev-parse --verify -q "$cand" >/dev/null; then
+      base=$cand
+      break
+    fi
+  done
+fi
+[ -n "$base" ] || die "pr-size-check: cannot resolve default branch (tried origin/HEAD)"
+
+mb=$(git merge-base "$base" HEAD) \
+  || die "pr-size-check: cannot find merge-base of $base and HEAD"
+
+added_product=0
+product_files=0
+# Newline-separated product paths (no grep; empty is fine).
+product_list=
+
+tab=$(printf '\t')
+# Command substitution + here-doc keeps the loop in this shell (no pipeline subshell).
+numstat=$(git diff --numstat "$mb" --)
+while IFS=$tab read -r added _deleted path; do
+  [ -n "${path:-}" ] || continue
+  if is_excluded "$path"; then
+    continue
+  fi
+  product_files=$((product_files + 1))
+  product_list="$product_list$path
+"
+  if is_uint "$added"; then
+    added_product=$((added_product + added))
+  fi
+done <<EOF
+$numstat
+EOF
+
+# Untracked files are not in `git diff` until they are added. Count them so
+# a worker cannot hide a megadiff by leaving new files unstaged.
+untracked=$(git ls-files --others --exclude-standard)
+while IFS= read -r path; do
+  [ -n "${path:-}" ] || continue
+  if is_excluded "$path"; then
+    continue
+  fi
+  product_files=$((product_files + 1))
+  product_list="$product_list$path
+"
+  if [ -f "$path" ]; then
+    # wc pads the number; strip spaces without grep.
+    lines=$(wc -l < "$path" | tr -d ' \t')
+    if is_uint "$lines"; then
+      added_product=$((added_product + lines))
+    fi
+  fi
+done <<EOF
+$untracked
+EOF
+
+printf 'added_product_lines=%s\n' "$added_product"
+printf 'product_files=%s\n' "$product_files"
+printf 'cap=%s\n' "$CAP"
+printf 'base=%s\n' "$base"
+
+if [ "$added_product" -ge "$CAP" ]; then
+  printf '%s\n' "AWAITING SPLIT"
+  if [ -n "$product_list" ]; then
+    printf '%s\n' "product files:"
+    printf '%s' "$product_list"
+  fi
+  exit 2
+fi
+
+exit 0
