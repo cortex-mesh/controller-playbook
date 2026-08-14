@@ -1,0 +1,11 @@
+# Example worker pool. Placeholders only.
+# Copy this file to a local path outside the public tree and fill real ssh
+# targets. Do not commit a private inventory (names, IPs, VPN ids).
+#
+# Columns: host<TAB>ssh<TAB>implementer<TAB>max_parallel
+# ssh: user@hostname (a name, never a remembered IP) or "local"
+# implementer: grok | codex | claude
+host	ssh	implementer	max_parallel
+dev-1	user@dev-1	grok	1
+dev-2	user@dev-2	grok	1
+ci-box	user@ci-box	grok	1

@@ -17,6 +17,7 @@ Two agents in one checkout overwrite each other. Two agents on overlapping files
 - Use a short phased ADR only when the shape of the system changes (new runtime, new auth boundary, new deploy path), so later tracks cannot collapse the phases. Do not ADR a rename, a lockfile bump, or a docs-only fix.
 - If a track would touch two or more subsystems, it is already two tracks. Write that split in the living graph before anyone codes.
 - Prefer spreading tracks across hosts. One laptop may still run serial tracks in separate worktrees.
+- Resolve the worker pool live at every dispatch (and on the 10-minute heartbeat) via `scripts/fleet-preflight`. The pool file is a local name list, not a cached IP inventory. A logged-out implementer is AWAITING LOGIN, not down. An SSH timeout on one host is not "no hosts." Stale tmux panes without a live implementer process are not busy.
 
 ## Consequences
 

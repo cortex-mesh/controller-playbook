@@ -8,7 +8,7 @@ See [ADR 0001](../docs/adr/0001-cos-worker-reviewer.md). The CoS coordinates and
 
 ## Worker pool (fill in)
 
-A worker is any host you can reach that has the implementer CLI installed and logged in. VPN, SSM, LAN SSH, or "this laptop" are all fine.
+A worker is any host you can reach that has the implementer CLI installed and logged in. VPN, SSM, LAN SSH, or "this laptop" are all fine. Keep the live list in a **local** pool file (see [examples/worker-pool.example.tsv](../examples/worker-pool.example.tsv)); do not commit real hosts.
 
 | Host | SSH | Fit | Max parallel tracks |
 | --- | --- | --- | --- |
@@ -18,9 +18,10 @@ A worker is any host you can reach that has the implementer CLI installed and lo
 
 Rules:
 
-- Before dispatch, list tmux and implementer sessions. Do not double-dispatch a busy host.
+- Before every dispatch, run `scripts/fleet-preflight` on the local pool file. Resolve the pool live. Do not cache host IPs.
+- Do not double-dispatch a busy host. Leftover tmux panes without a live implementer process are not busy.
 - One git worktree per track on the host that owns the track.
-- Login (implementer models + `gh`) is a per-host dispatch input. A logged-out host does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph.
+- Login (implementer models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. An SSH timeout on one host is not "no hosts" — finish the table.
 - If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
 - A laptop-only pool is valid. Isolation still comes from worktrees.
 
@@ -55,8 +56,8 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 1. Read the goal progress log. Name the next incomplete **worker** phase (one graph node, one PR, one outcome). Do not dispatch staging or last integration.
 2. Confirm the track is unblocked in the dependency graph.
 3. Confirm blast radius is one subsystem / one outcome. Two subsystems or two outcomes is already two tracks — write the split in the graph first.
-4. Pick the least-loaded host that fits and is logged in (implementer + `gh`).
-5. If the assigned host is logged out, re-pick and write the new owner into the graph.
+4. Run `scripts/fleet-preflight` against the **local** pool file (argv or `FLEET_POOL`). Resolve live; do not reuse a remembered IP. Pick the `recommended:` free logged-in host.
+5. `login-needed` is AWAITING LOGIN, not down — skip that host, re-pick, and write the new owner into the graph. A timeout is not "no hosts"; finish the table. Leftover tmux panes without a live implementer process are not busy.
 6. `git fetch` and `git worktree add` from the current default-branch tip.
 7. Launch the worker against the **absolute path** of the goal prompt.
 8. Confirm the process is alive. Record host, worktree, session, branch.
@@ -162,7 +163,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Implementing or CI: every 10 minutes, dual timestamps. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
 
 ```text
 Thu Aug 13, 2026, 6:45:00 AM PT

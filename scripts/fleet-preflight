@@ -1,0 +1,524 @@
+#!/bin/sh
+# Probe the worker pool live. Never cache host IPs.
+#
+# Usage:
+#   scripts/fleet-preflight [pool-file]
+#   FLEET_POOL=/path/to/pool.tsv scripts/fleet-preflight
+#
+# Pool file is a local TSV (not a remembered inventory in this repo):
+#   host<TAB>ssh<TAB>implementer<TAB>max_parallel
+# ssh is user@hostname, a hostname, or "local". Use names, not IPs.
+# implementer is grok, codex, or claude. max_parallel is a positive integer.
+# Header row "host", blank lines, and # comments are skipped.
+#
+# For each host this run:
+#   - resolve the current address from a live VPN CLI if one exists
+#     (tailscale status); never reuse an address from a previous probe
+#   - SSH BatchMode + short timeout; a timeout does not skip later hosts
+#   - implementer CLI present + logged in
+#   - gh logged in
+#   - tmux sessions (leftover panes are not busy)
+#   - live implementer PIDs only
+#
+# Prints a table: host reachable login gh live_sessions status
+# status is free | busy | login-needed | down
+# login-needed is AWAITING LOGIN, not unreachable.
+#
+# Exit 0 and print a recommended free logged-in host.
+# Exit 2 if none free (distinguishes login-needed vs down vs busy).
+# Exit 1 on usage / pool errors.
+
+set -eu
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+is_uint() {
+  case $1 in
+    ''|*[!0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+usage() {
+  die "usage: fleet-preflight [pool-file]
+       FLEET_POOL=/path/to/pool.tsv fleet-preflight
+
+Probe every host in the local pool file. Do not cache IPs.
+Exit 0: recommended free logged-in host.
+Exit 2: none free (login-needed vs down vs busy).
+Exit 1: usage or pool error."
+}
+
+# Live VPN lookup for $1 (pool host name). Sets _vpn and _vpn_dest.
+# _vpn: missing | offline | online
+# _vpn_dest: current address for this call only; never printed; never stored.
+# Offline peer → down (do not SSH to a stale VPN IP).
+resolve_vpn() {
+  _want=$1
+  _vpn=missing
+  _vpn_dest=
+  command -v tailscale >/dev/null 2>&1 || return 0
+
+  _hit=
+  if command -v python3 >/dev/null 2>&1; then
+    _hit=$(tailscale status --json 2>/dev/null | python3 -c '
+import json, sys
+want = sys.argv[1].lower().rstrip(".")
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+
+def labels(name):
+    name = (name or "").lower().rstrip(".")
+    short = name.split(".")[0] if name else ""
+    return name, short
+
+def match(node):
+    host, short = labels(node.get("HostName"))
+    dns, dns_short = labels(node.get("DNSName"))
+    return want != "" and want in (host, short, dns, dns_short)
+
+def dest(node):
+    for ip in node.get("TailscaleIPs") or []:
+        if ":" not in str(ip):
+            return str(ip)
+    ips = node.get("TailscaleIPs") or []
+    return str(ips[0]) if ips else ""
+
+nodes = []
+if data.get("Self"):
+    nodes.append(data["Self"])
+for peer in (data.get("Peer") or {}).values():
+    nodes.append(peer)
+for node in nodes:
+    if match(node):
+        if node.get("Online"):
+            print("online " + dest(node))
+        else:
+            print("offline")
+        sys.exit(0)
+' "$_want" 2>/dev/null || true)
+  fi
+
+  if [ -z "$_hit" ]; then
+    _txt=$(tailscale status --self 2>/dev/null || true)
+    [ -n "$_txt" ] || return 0
+    _want_lc=$(printf '%s\n' "$_want" | tr '[:upper:]' '[:lower:]')
+    while IFS= read -r _line; do
+      case $_line in
+        ''|'#'*|Health*) continue ;;
+      esac
+      set -- $_line
+      [ "$#" -ge 2 ] || continue
+      _ip=$1
+      _name=$2
+      case $_ip in
+        [0-9]*.*[0-9]*|*:*) ;;
+        *) continue ;;
+      esac
+      _name_lc=$(printf '%s\n' "$_name" | tr '[:upper:]' '[:lower:]')
+      _name_short=${_name_lc%%.*}
+      if [ "$_name_lc" = "$_want_lc" ] || [ "$_name_short" = "$_want_lc" ]; then
+        case $_line in
+          *[Oo]ffline*) _hit=offline ;;
+          *) _hit="online $_ip" ;;
+        esac
+        break
+      fi
+    done <<EOF
+$_txt
+EOF
+  fi
+
+  case $_hit in
+    offline)
+      _vpn=offline
+      ;;
+    online\ *)
+      _vpn=online
+      _vpn_dest=${_hit#online }
+      ;;
+  esac
+}
+
+# Probe body run locally or over SSH. Arg 1 = implementer.
+# Prints: cli=yes|no login=yes|no gh=yes|no live=N
+# Does not print account names, emails, or IPs.
+probe_body() {
+  cat <<'PROBE'
+set -eu
+impl=${1:-grok}
+PATH="$HOME/.grok/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+export PATH
+
+run_limited() {
+  _secs=$1
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$_secs" "$@"
+  elif command -v perl >/dev/null 2>&1; then
+    perl -e 'alarm shift; exec @ARGV' "$_secs" "$@"
+  else
+    "$@"
+  fi
+}
+
+find_bin() {
+  _name=$1
+  case $_name in
+    grok)
+      if [ -x "$HOME/.grok/bin/grok" ]; then
+        printf '%s\n' "$HOME/.grok/bin/grok"
+        return 0
+      fi
+      ;;
+  esac
+  command -v "$_name" 2>/dev/null || true
+}
+
+cli=no
+login=no
+gh=no
+live=0
+
+bin=$(find_bin "$impl")
+if [ -n "$bin" ]; then
+  cli=yes
+  case $impl in
+    grok)
+      if [ -n "${XAI_API_KEY:-}" ]; then
+        login=yes
+      elif run_limited 8 "$bin" models >/dev/null 2>&1; then
+        login=yes
+      fi
+      ;;
+    codex)
+      if run_limited 8 "$bin" login status >/dev/null 2>&1; then
+        login=yes
+      fi
+      ;;
+    claude)
+      _auth=$(run_limited 8 "$bin" auth status --json 2>/dev/null || true)
+      case $_auth in
+        *'"loggedIn": true'*|*'"loggedIn":true'*) login=yes ;;
+      esac
+      ;;
+  esac
+fi
+
+if command -v gh >/dev/null 2>&1; then
+  if run_limited 8 gh auth status >/dev/null 2>&1; then
+    gh=yes
+  fi
+fi
+
+# Leftover remain-on-exit panes are not busy; only live PIDs count.
+tmux list-sessions >/dev/null 2>&1 || true
+
+ps_out=$(ps -ax -o args= 2>/dev/null || ps -e -o args= 2>/dev/null || true)
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  while :; do
+    case $line in
+      ' '*) line=${line# } ;;
+      *) break ;;
+    esac
+  done
+  set -- $line
+  cmd=${1:-}
+  case $cmd in
+    tmux) continue ;;
+  esac
+  case $impl in
+    grok)
+      case $cmd in
+        */grok|grok) ;;
+        *) continue ;;
+      esac
+      case $line in
+        *\ -p\ *|*\ -p|*\ --single\ *|*\ --single|*\ --prompt-file*|*\ --continue\ *|*\ --continue|*\ --resume*|*\ --no-alt-screen*)
+          live=$((live + 1)) ;;
+      esac
+      ;;
+    codex)
+      case $cmd in
+        */codex|codex) ;;
+        *) continue ;;
+      esac
+      case ${2:-} in
+        review|login|logout|completion|help|--help|-h) continue ;;
+      esac
+      case $line in
+        *\ exec\ *|*\ exec|*\ -C\ *)
+          live=$((live + 1)) ;;
+      esac
+      ;;
+    claude)
+      case $cmd in
+        */claude|claude) ;;
+        *) continue ;;
+      esac
+      case ${2:-} in
+        auth|login|logout|update|doctor|mcp|--version|-v|--help|-h) continue ;;
+      esac
+      case $line in
+        *\ -p\ *|*\ -p|*\ --print\ *)
+          live=$((live + 1)) ;;
+      esac
+      ;;
+  esac
+done <<EOF
+$ps_out
+EOF
+
+printf 'cli=%s login=%s gh=%s live=%s\n' "$cli" "$login" "$gh" "$live"
+PROBE
+}
+
+is_local_ssh() {
+  case $1 in
+    local|LOCAL|-|localhost) return 0 ;;
+  esac
+  return 1
+}
+
+parse_probe() {
+  _out=$1
+  p_cli=no
+  p_login=no
+  p_gh=no
+  p_live=0
+  for _tok in $_out; do
+    case $_tok in
+      cli=yes) p_cli=yes ;;
+      cli=no) p_cli=no ;;
+      login=yes) p_login=yes ;;
+      login=no) p_login=no ;;
+      gh=yes) p_gh=yes ;;
+      gh=no) p_gh=no ;;
+      live=*)
+        p_live=${_tok#live=}
+        is_uint "$p_live" || p_live=0
+        ;;
+    esac
+  done
+  if [ "$p_cli" = yes ] && [ "$p_login" = yes ]; then
+    p_login_col=yes
+  else
+    p_login_col=no
+  fi
+}
+
+# --- args ---
+case ${1:-} in
+  -h|--help) usage ;;
+esac
+
+pool=${1:-${FLEET_POOL:-${WORKER_POOL:-}}}
+[ -n "$pool" ] || usage
+[ -f "$pool" ] || die "fleet-preflight: pool file not found: $pool"
+[ -r "$pool" ] || die "fleet-preflight: pool file not readable: $pool"
+
+ssh_timeout=${FLEET_SSH_TIMEOUT:-5}
+is_uint "$ssh_timeout" || die "fleet-preflight: FLEET_SSH_TIMEOUT must be a non-negative integer"
+
+tab=$(printf '\t')
+cr=$(printf '\r')
+
+hosts=
+ssh_of=
+impl_of=
+max_of=
+
+n_hosts=0
+need_ssh=0
+while IFS= read -r line || [ -n "${line:-}" ]; do
+  case $line in
+    *$cr) line=${line%$cr} ;;
+  esac
+  case $line in
+    ''|'#'*) continue ;;
+  esac
+  host=
+  ssh_t=
+  impl=
+  max=
+  extra=
+  case $line in
+    *"$tab"*)
+      IFS=$tab read -r host ssh_t impl max extra <<EOF
+$line
+EOF
+      ;;
+    *)
+      IFS=' ' read -r host ssh_t impl max extra <<EOF
+$line
+EOF
+      ;;
+  esac
+  case ${host:-} in
+    ''|host|Host|'#') continue ;;
+  esac
+  [ -n "${ssh_t:-}" ] || die "fleet-preflight: $host: missing ssh column"
+  impl=$(printf '%s\n' "${impl:-grok}" | tr '[:upper:]' '[:lower:]')
+  case $impl in
+    grok|codex|claude) ;;
+    *) die "fleet-preflight: $host: unknown implementer '$impl' (grok, codex, claude)" ;;
+  esac
+  max=${max:-1}
+  is_uint "$max" && [ "$max" -ge 1 ] \
+    || die "fleet-preflight: $host: max_parallel must be a positive integer"
+  n_hosts=$((n_hosts + 1))
+  is_local_ssh "$ssh_t" || need_ssh=1
+  hosts="$hosts$host
+"
+  # Encode fields as host<TAB>value so lookup is exact.
+  ssh_of="$ssh_of$host$tab$ssh_t
+"
+  impl_of="$impl_of$host$tab$impl
+"
+  max_of="$max_of$host$tab$max
+"
+done < "$pool"
+
+[ "$n_hosts" -gt 0 ] || die "fleet-preflight: no hosts in $pool"
+if [ "$need_ssh" -eq 1 ] && ! command -v ssh >/dev/null 2>&1; then
+  die "fleet-preflight: ssh not found (needed for non-local hosts)"
+fi
+
+lookup_field() {
+  _table=$1
+  _key=$2
+  while IFS=$tab read -r _h _v; do
+    [ "$_h" = "$_key" ] || continue
+    printf '%s\n' "$_v"
+    return 0
+  done <<EOF
+$_table
+EOF
+}
+
+# Probe every host. A timeout or failure never skips the rest of the pool.
+printf '%-12s %-10s %-14s %-5s %-13s %s\n' \
+  host reachable login gh live_sessions status
+
+free_n=0
+busy_n=0
+login_n=0
+down_n=0
+free_list=
+busy_list=
+login_list=
+down_list=
+best_host=
+best_live=99999
+
+while IFS= read -r host; do
+  [ -n "$host" ] || continue
+  ssh_t=$(lookup_field "$ssh_of" "$host")
+  impl=$(lookup_field "$impl_of" "$host")
+  max=$(lookup_field "$max_of" "$host")
+
+  reachable=no
+  login_col=-
+  gh_col=-
+  live_col=-
+  status=down
+  out=
+
+  if is_local_ssh "$ssh_t"; then
+    out=$(probe_body | sh -s -- "$impl" 2>/dev/null || true)
+    if [ -n "$out" ]; then
+      reachable=yes
+    fi
+  else
+    resolve_vpn "$host"
+    if [ "$_vpn" = offline ]; then
+      reachable=no
+    else
+      ssh_cmd="ssh -o BatchMode=yes -o ConnectTimeout=$ssh_timeout -o ConnectionAttempts=1 -o LogLevel=ERROR"
+      if [ -n "$_vpn_dest" ]; then
+        # Live address for this call only. Never printed. Never stored.
+        ssh_cmd="$ssh_cmd -o HostName=$_vpn_dest"
+      fi
+      # shellcheck disable=SC2086
+      out=$(probe_body | $ssh_cmd -- "$ssh_t" "sh -s -- $impl" 2>/dev/null || true)
+      if [ -n "$out" ]; then
+        reachable=yes
+      fi
+    fi
+  fi
+
+  if [ "$reachable" = yes ]; then
+    parse_probe "$out"
+    login_col=$p_login_col
+    gh_col=$p_gh
+    live_col=$p_live
+    if [ "$p_login_col" != yes ] || [ "$p_gh" != yes ]; then
+      status=login-needed
+    elif [ "$p_live" -ge "$max" ]; then
+      status=busy
+    else
+      status=free
+    fi
+  fi
+
+  printf '%-12s %-10s %-14s %-5s %-13s %s\n' \
+    "$host" "$reachable" "$login_col" "$gh_col" "$live_col" "$status"
+
+  case $status in
+    free)
+      free_n=$((free_n + 1))
+      if [ -n "$free_list" ]; then
+        free_list="$free_list, $host"
+      else
+        free_list=$host
+      fi
+      if [ "$live_col" -lt "$best_live" ]; then
+        best_live=$live_col
+        best_host=$host
+      fi
+      ;;
+    busy)
+      busy_n=$((busy_n + 1))
+      if [ -n "$busy_list" ]; then
+        busy_list="$busy_list, $host"
+      else
+        busy_list=$host
+      fi
+      ;;
+    login-needed)
+      login_n=$((login_n + 1))
+      if [ -n "$login_list" ]; then
+        login_list="$login_list, $host"
+      else
+        login_list=$host
+      fi
+      ;;
+    down)
+      down_n=$((down_n + 1))
+      if [ -n "$down_list" ]; then
+        down_list="$down_list, $host"
+      else
+        down_list=$host
+      fi
+      ;;
+  esac
+done <<EOF
+$hosts
+EOF
+
+if [ "$free_n" -gt 0 ]; then
+  printf 'recommended: %s\n' "$best_host"
+  exit 0
+fi
+
+printf '%s\n' "none free"
+printf 'login-needed (AWAITING LOGIN): %s\n' "${login_list:--}"
+printf 'down: %s\n' "${down_list:--}"
+printf 'busy: %s\n' "${busy_list:--}"
+exit 2

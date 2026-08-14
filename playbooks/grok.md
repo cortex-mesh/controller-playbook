@@ -32,7 +32,9 @@ $GROK --version
 
 `grok --worktree` does not create a worktree in headless `-p` mode. You create the git worktree.
 
-Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+
+Before every dispatch and on the 10-minute heartbeat, run `scripts/fleet-preflight` against the **local** pool file (copy [examples/worker-pool.example.tsv](../examples/worker-pool.example.tsv)). Resolve the pool live. Do not remember Tailscale or SSH IPs. `login-needed` is AWAITING LOGIN. One SSH timeout is not "no hosts." Leftover tmux panes without a live `grok` process are not busy. See [fleet-preflight](../skills/fleet-preflight/SKILL.md).
 
 ## Loop
 
@@ -97,7 +99,7 @@ Prefer `--continue` or `--resume <uuid>` over a new conversation. Interactive TU
 
 Autonomy for in-scope writes: `--always-approve --permission-mode bypassPermissions`. Still no production, no new paid secrets, no destructive data. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 
-Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-track](../skills/grok-launch-track/SKILL.md).
+Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-track](../skills/grok-launch-track/SKILL.md), [fleet-preflight](../skills/fleet-preflight/SKILL.md).
 
 ## Review
 
@@ -162,7 +164,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." A weekday-only schedule misses weekend tracks; do not use one.
+Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
 
 `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
 
