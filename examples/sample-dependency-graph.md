@@ -1,7 +1,12 @@
 # Sample dependency graph — Harbor v1
 
-Fictional wave. Two tracks may run in parallel because they do not share files.
-Staging waits for both merges and is CoS-only.
+Fictional wave. Each phase is one graph node, one PR, and one mergeable outcome.
+Two tracks may run in parallel because they do not share files. Staging waits
+for both merges and is CoS-only.
+
+Phase 0 is a short phased ADR (stack, tenancy) because the *shape* of the
+system is new. It lists Phases 1–2 so later tracks cannot collapse API+UI into
+one PR. A rename or lockfile bump would not get an ADR.
 
 ```mermaid
 flowchart LR
@@ -19,6 +24,8 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Field | Track A | Track B |
 | --- | --- | --- |
 | Name | `harbor-berth-api` | `harbor-operator-ui` |
+| Goal phase | Phase 1 — Berth API | Phase 2 — Operator UI |
+| Mergeable outcome | slips + reservations CRUD and conflict rule | list slips, create reservation, show conflicts |
 | Assigned host | `dev-2` (failover from `dev-1`) | `ci-box` |
 | Login / preflight | `dev-1` logged out — skipped. `dev-2`: `grok` + `gh` logged in | `ci-box`: `grok` + `gh` logged in |
 | Tmux | gone — infer GATE from git/PR; do not re-dispatch | alive, `remain-on-exit` on |
@@ -49,8 +56,9 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 
 ## Split rules
 
+- Grouping first: one node = one outcome. "The whole feature" is already too big — write phases in this table and the goal prompt before anyone codes. Mapping: phase N → this node → one PR → one outcome. A worker must not add a second outcome to the same PR.
 - Soft: two or more subsystems is already two tracks. Write that split in this table before anyone codes. A mixed "berth API + IAM + compose/runtime" wave is not one track. File count is a graph smell, not a cap: split when the file list spans two or more subsystems, regardless of loc. High file count with a small product diff (renames, import paths) is still reviewable.
-- Hard: ≥800 added product lines (see [general.md](../playbooks/general.md#pr-size)) is `AWAITING SPLIT`, not `AWAITING GATE`. Update this table and re-dispatch. There is no "justify the megadiff." File count alone does not fail GATE.
+- Hard (backstop): ≥800 added product lines (see [general.md](../playbooks/general.md#pr-size)) is `AWAITING SPLIT`, not `AWAITING GATE`. Update this table and re-dispatch. There is no "justify the megadiff." File count alone does not fail GATE.
 
 ## Merge order
 

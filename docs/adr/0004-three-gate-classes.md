@@ -25,4 +25,4 @@ Workers may complete a repository gate and then stop at `AWAITING GATE`. A PR ov
 - Auto-deploy from default-branch CI is a staging concern. A red default-branch run can skip deploy with no PR failure; watch it.
 - Goal prompts list which actions the CoS may take without another human decision.
 - Sample goals and launch skills skip staging when naming the next incomplete worker phase.
-- Before GATE, the CoS size-checks (`gh pr view --json additions` and/or `git diff --stat`) and REVISE-to-split if the product-line count is ≥800. Do not COMMENT-review a +11k PR hoping the reviewer will save it. File count alone does not fail GATE.
+- Before GATE, the CoS confirms one outcome, then size-checks (`gh pr view --json additions` and/or `git diff --numstat "$DEFAULT"...HEAD` after the product-file exclusions). REVISE-to-split if there is a second outcome or the product-line count is ≥800. Do not COMMENT-review a +11k PR hoping the reviewer will save it. File count alone does not fail GATE. Size is the backstop; grouping is the method ([ADR 0003](0003-worktrees-and-parallel-tracks.md)).
