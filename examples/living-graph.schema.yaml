@@ -85,3 +85,7 @@ definitions:
       host:
         type: string
         description: Placeholder worker name (dev-1, ci-box). Never a real inventory.
+      depends_on:
+        type: array
+        items: {type: string, minLength: 1}
+        description: Predecessor node ids. Optional; markdown still shows the picture.

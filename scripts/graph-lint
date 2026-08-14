@@ -59,7 +59,8 @@ def load_yaml(path):
             die("graph-lint: need PyYAML or ruby")
         proc = subprocess.run(
             ["ruby", "-ryaml", "-rjson", "-e",
-             "puts JSON.generate(YAML.load_file(ARGV[0]))", path],
+             "raw=File.read(ARGV[0]); d=begin; YAML.safe_load(raw, aliases:true); rescue ArgumentError; YAML.safe_load(raw); end; puts JSON.generate(d)",
+             path],
             capture_output=True, text=True,
         )
         if proc.returncode:
@@ -97,7 +98,13 @@ def parts(glob):
 def segs_match(a, b):
     if a == b or "*" in (a, b) or "**" in (a, b):
         return True
-    return fnmatch.fnmatch(a, b) or fnmatch.fnmatch(b, a)
+    if fnmatch.fnmatch(a, b) or fnmatch.fnmatch(b, a):
+        return True
+    # Two wildcard segments: assume overlap unless we can prove disjoint.
+    # src/a* vs src/*b both own src/ab; fnmatch of one pattern on the
+    # other literal misses that intersection.
+    wild = lambda s: any(ch in s for ch in "*?[")
+    return wild(a) and wild(b)
 
 
 def globs_overlap(ga, gb):

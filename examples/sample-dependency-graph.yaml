@@ -21,6 +21,7 @@ nodes:
     over_cap: false
     branch: feat/harbor-docs
     tmux: gone
+    depends_on: []
 
   - id: harbor-berth-api
     phase: 1
@@ -37,6 +38,8 @@ nodes:
     tmux: gone
     comment_url: https://github.com/example/example-app/pull/12#pullrequestreview-1
     host: dev-2
+    depends_on:
+      - harbor-docs
 
   - id: harbor-operator-ui
     phase: 2
@@ -51,3 +54,5 @@ nodes:
     branch: feat/operator-ui
     tmux: alive
     host: ci-box
+    depends_on:
+      - harbor-docs

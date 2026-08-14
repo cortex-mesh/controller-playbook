@@ -51,7 +51,8 @@ def load_yaml(path):
             die("track-status: need PyYAML or ruby")
         proc = subprocess.run(
             ["ruby", "-ryaml", "-rjson", "-e",
-             "puts JSON.generate(YAML.load_file(ARGV[0]))", path],
+             "raw=File.read(ARGV[0]); d=begin; YAML.safe_load(raw, aliases:true); rescue ArgumentError; YAML.safe_load(raw); end; puts JSON.generate(d)",
+             path],
             capture_output=True, text=True,
         )
         if proc.returncode:
@@ -117,12 +118,19 @@ def filled(val):
 
 
 def probe_tmux(session):
+    # True = live pane, False = no session, "stale" = remain-on-exit
+    # with no live command, None = tmux missing.
     if not session or session in ("gone", "dead") + QUIET:
         return False
     if not shutil.which("tmux"):
         return None
     _, rc = run(["tmux", "has-session", "-t", session])
-    return rc == 0
+    if rc != 0:
+        return False
+    out, rc = run(["tmux", "list-panes", "-t", session, "-F", "#{pane_dead}"])
+    if rc == 0 and out and all(p.strip() == "1" for p in out.splitlines()):
+        return "stale"
+    return True
 
 
 def probe_branch(repo, branch):
@@ -168,6 +176,11 @@ def comment_on_head(data, head):
     return False
 
 
+def remote_host(host):
+    h = (host or "").strip().lower()
+    return h not in ("", "local", "localhost", "this") + tuple(QUIET)
+
+
 def infer(node, repo):
     nid = node.get("id") or "?"
     branch = node.get("branch") or ""
@@ -177,14 +190,20 @@ def infer(node, repo):
     graph_sha = node.get("head_sha") or ""
     graph_comment = filled(node.get("comment_url"))
     graph_state = node.get("state") or ""
-    live_tmux = probe_tmux(session)
-    live_branch = probe_branch(repo, branch) if branch else None
+    remote = remote_host(node.get("host"))
+    live_tmux = None if remote else probe_tmux(session)
+    live_branch = None if remote else (probe_branch(repo, branch) if branch else None)
     live_pr = probe_pr(repo, pr_ref, pr_no)
     bits, source = [], "graph"
 
+    if remote:
+        bits.append("remote host; local tmux/git unknown")
     if live_tmux is True:
         tmux_up, source = True, "live"
         bits.append("tmux live")
+    elif live_tmux == "stale":
+        tmux_up, source = False, "live"
+        bits.append("tmux stale (no live pane)")
     elif live_tmux is False:
         tmux_up = False
         bits.append("tmux gone")
@@ -208,8 +227,12 @@ def infer(node, repo):
         bits.append("%s #%s" % (label, live_pr.get("number", pr_no)))
         bits.append("COMMENT on this head" if comment else "no COMMENT on this head")
     elif pr_no is not None:
-        pr_open = True
-        bits.append("draft PR %s#%s (recorded)" % (pr_ref or "repo", pr_no))
+        if graph_state == "MERGED":
+            pr_merged = True
+            bits.append("PR %s#%s recorded MERGED" % (pr_ref or "repo", pr_no))
+        else:
+            pr_open = True
+            bits.append("draft PR %s#%s (recorded)" % (pr_ref or "repo", pr_no))
         if comment:
             bits.append("COMMENT recorded")
         if graph_sha:
@@ -221,12 +244,16 @@ def infer(node, repo):
     elif live_branch is False and branch:
         bits.append("no local branch")
 
-    if pr_merged and not tmux_up:
+    if pr_merged:
         inferred, redispatch = "MERGED", "no"
     elif pr_open and comment:
         inferred, redispatch = "AWAITING GATE", "no"
     elif pr_open or tmux_up or live_branch is True:
         inferred, redispatch = "DISPATCHED", "no"
+    elif remote and graph_state not in ("MERGED", "PENDING", "AWAITING LOGIN", "DEAD"):
+        # Do not call a remote track DEAD from missing local tmux/branch.
+        inferred, redispatch = "DISPATCHED", "no"
+        bits.append("remote; not DEAD without live facts")
     elif graph_state in ("MERGED", "PENDING", "AWAITING LOGIN"):
         inferred, redispatch = graph_state, "no"
         bits.append("graph %s; no live work" % graph_state)
@@ -267,6 +294,11 @@ def main(argv):
         usage()
     if not os.path.isfile(path):
         die("track-status: not a file: %s" % path)
+    if not shutil.which("git"):
+        die("track-status: git not found")
+    inside, rc = run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"])
+    if rc != 0 or inside.strip() != "true":
+        die("track-status: not a git repository: %s" % repo)
     data = load_yaml(path)
     if data.get("schema") != SCHEMA:
         die("track-status: schema must be %s" % SCHEMA)
@@ -279,7 +311,16 @@ def main(argv):
             die("track-status: each node must be a mapping")
         rows.append(infer(node, repo))
     widths = [max(len(r[i]) for r in rows) for i in range(4)]
-    print("graph=%s" % path)
+    shown = path
+    home = os.path.expanduser("~")
+    abs_p = os.path.abspath(path)
+    if home and abs_p.startswith(home + os.sep):
+        shown = os.path.basename(path)
+    elif not os.path.isabs(path):
+        shown = path
+    else:
+        shown = os.path.basename(path)
+    print("graph=%s" % shown)
     for rec in rows:
         print("%-*s  %-*s  %-*s  %-*s  %s" % (
             widths[0], rec[0], widths[1], rec[1],
