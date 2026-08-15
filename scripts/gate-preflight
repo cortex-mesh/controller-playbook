@@ -194,7 +194,9 @@ def probe_ci(repo, repo_ref, number):
     out, err, rc = run(cmd, cwd=repo)
     text = ("%s\n%s" % (out, err)).lower()
     if rc != 0:
-        return "none" if ("no checks" in text or "not found" in text or not out) else None
+        # Only an explicit empty check list is verified no-CI.
+        # Auth / network / rate-limit errors stay unverifiable.
+        return "none" if "no checks" in text else None
     try:
         checks = json.loads(out or "[]")
     except ValueError:
@@ -401,7 +403,10 @@ def main(argv):
 
     if live is None and pr_no is not None:
         live = probe_pr(repo, pr_ref, pr_no)
-    head = sha_arg or (live or {}).get("headRefOid") or work_sha
+    live_head = (live or {}).get("headRefOid")
+    if sha_arg and live_head and not sha_match(sha_arg, live_head):
+        errors.append("--sha %s != live PR head %s" % (sha_arg, live_head))
+    head = live_head or sha_arg or work_sha
     if live and work_sha and head and not sha_match(work_sha, head):
         errors.append("worktree HEAD %s != PR head %s" % (work_sha, head))
 
@@ -422,24 +427,29 @@ def main(argv):
                 errors.append("status pr %s != live %s#%s" % (rec.get("pr"), pr_ref or "repo", pr_no))
         if live and filled(rec.get("head_sha")) and head and not sha_match(rec.get("head_sha"), head):
             errors.append("status head_sha does not match this SHA")
-        try:
-            rnd = int(rec.get("review_round"))
-        except (TypeError, ValueError):
-            rnd = 0
-        if rnd > REVISE_CAP:
-            errors.append("status review_round %s exceeds cap %d" % (rnd, REVISE_CAP))
+        rnd = rec.get("review_round")
+        if "review_round" in rec and (
+                isinstance(rnd, bool) or not isinstance(rnd, int)
+                or rnd < 0 or rnd > REVISE_CAP):
+            errors.append("status review_round must be an integer 0..%d" % REVISE_CAP)
         if rec.get("state") == "AWAITING GATE":
-            for i, step in enumerate(rec.get("dod") or []):
-                if not isinstance(step, dict) or step.get("exit") != 0:
-                    errors.append("AWAITING GATE illegal: %s exit %s" % (
-                        (step or {}).get("command", "dod[%d]" % i), (step or {}).get("exit")))
-        if ci is None and rec.get("ci") in ("green", "none", "pending", "red"):
+            dod = rec.get("dod")
+            if not isinstance(dod, list) or not dod:
+                errors.append("AWAITING GATE illegal: status dod is empty")
+            else:
+                for i, step in enumerate(dod):
+                    if not isinstance(step, dict) or step.get("exit") != 0:
+                        errors.append("AWAITING GATE illegal: %s exit %s" % (
+                            step.get("command", "dod[%d]" % i) if isinstance(step, dict) else "dod[%d]" % i,
+                            step.get("exit") if isinstance(step, dict) else "?"))
+        # Recorded ci / COMMENT only fill gaps when the PR cannot be probed
+        # (fictional sample). Live evidence is not overridden by status.yaml.
+        if live is None and ci is None and rec.get("ci") in ("green", "none", "pending", "red"):
             ci = rec.get("ci")
-        if not comment and filled(rec.get("comment_url")):
-            if not live or sha_match(rec.get("head_sha"), head):
-                comment = True
-                if not live and filled(rec.get("head_sha")):
-                    head = rec.get("head_sha")
+        if live is None and not comment and filled(rec.get("comment_url")):
+            comment = True
+            if filled(rec.get("head_sha")):
+                head = rec.get("head_sha")
 
     if not comment:
         errors.append("no COMMENT review on this SHA")

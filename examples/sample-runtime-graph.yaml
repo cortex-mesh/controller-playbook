@@ -5,7 +5,6 @@
 
 schema: living-graph/v1
 goal: status contract + GATE log + gate-preflight
-snapshot: ~
 nodes:
   - id: runtime-contract
     phase: 1
