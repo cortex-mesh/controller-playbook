@@ -2,6 +2,8 @@
 # Schema: status.schema.yaml
 # Graph facts: sample-dependency-graph.yaml (graph-lint / track-status).
 # CoS reads this file. Do not invent these fields from tmux.
+# Graph state is AWAITING GATE (repo gate). The CoS-visible line is
+# WAITING ON YOU: merge PR #12 — not quiet-at-GATE.
 
 schema: status/v1
 node: harbor-berth-api

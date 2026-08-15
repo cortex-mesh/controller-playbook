@@ -118,8 +118,8 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 
 The CoS cannot sit in one turn forever. A 10-minute routine (or a tmux watchdog that only repeats an authorized step) keeps the loop moving:
 
-- Heartbeat while implementing or in CI (dual timestamps), including "still working."
-- `AWAITING GATE`: one immediate notice, then quiet until CoS REVISE or GATE.
+- Heartbeat while implementing or in CI (dual timestamps), including "still working." Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED.
+- `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice.
 - Inspect tmux, git, PR head, and CI. Read the worker [status file](../examples/status.schema.yaml) and the [GATE log](../examples/sample-gate-log.tsv). Do not invent state from tmux. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
 - Take the next already-authorized repo-safe step. Do not become the implementer when dispatch fails.
 - Do not double-dispatch a progressing track.

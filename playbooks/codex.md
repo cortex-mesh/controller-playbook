@@ -97,4 +97,4 @@ Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record 
 
 ## Heartbeat
 
-Ten-minute cadence while tracks run. Watchdog may inspect and repeat an authorized steer. It may not redefine scope, invent gates, merge production, or retry an unresolved escalation indefinitely. Three attempts, then escalate.
+Ten-minute cadence while tracks run. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED; see [general.md](general.md#heartbeat). Do not go quiet at GATE. Watchdog may inspect and repeat an authorized steer. It may not redefine scope, invent gates, merge production, or retry an unresolved escalation indefinitely. Three attempts, then escalate.

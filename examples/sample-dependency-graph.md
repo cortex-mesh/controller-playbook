@@ -50,6 +50,8 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Draft PR | `example-app#12` (draft) | `example-app#13` (draft) |
 | Head SHA | `abc1234` (pinned `commit_id`) | `def5678` (pinned `commit_id`) |
 | COMMENT URL | `https://github.com/example/example-app/pull/12#pullrequestreview-1` | pending worker COMMENT on this head |
+| Graph state | `AWAITING GATE` (repo gate) | `DISPATCHED` |
+| CoS-visible line | WAITING ON YOU: merge PR #12 | WORKING: implementing; will check in again in 10 minutes |
 | Gate class | repository | repository |
 | Repo gate | CI-equivalent check, mutation on conflicts, COMMENT after this-SHA CI | CI-equivalent check, COMMENT after this-SHA CI |
 | Staging gate | CoS-only after both merges; `GET /health` | CoS-only after both merges; create reservation in UI |

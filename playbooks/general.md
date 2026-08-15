@@ -181,6 +181,8 @@ Escalate to a fresh CoS-run review for schema, auth, migration, security, data-w
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Green pre-merge CI is not a staging check. Staging is CoS-only.
 
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice. Do not phrase that decision as a status ("merge as-is, or I send the worker back"). If the CoS is still running gate-preflight, rebase, or COMMENT confirm, the line is `WORKING`.
+
 ## Escalate
 
 Same blocker on one track:
@@ -193,13 +195,33 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. Read the worker status file and the GATE log. Do not invent state, PR, SHA, or next action from tmux or chat. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Every CoS-visible message starts with one label:
+
+- **WORKING** — CoS/worker still going. No action from the human. 10-minute heartbeat continues ("will check in again in 10 minutes").
+- **WAITING ON YOU** — first line, then the exact action (merge PR #N, authorize device login, approve a graph split). Stop the 10-minute "still working" heartbeat. Do not go silent. If still blocked on the human after about 30-60 minutes (or the next morning), one reminder that still starts WAITING ON YOU, not a 10-minute drip.
+- **BLOCKED** — not the human (implementer logged out, CI, SSH). Name what is blocked and whether the CoS is unblocking it.
+
+Do not phrase a human decision as a status ("merge as-is, or I send the worker back"). That is WAITING ON YOU.
+
+`AWAITING GATE` in the graph still means the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Quiet-at-GATE / one notice then silent is not allowed. `AWAITING SPLIT`: `WORKING` if the CoS can write the split and re-dispatch; `WAITING ON YOU: approve a graph split` if the human must approve it.
+
+Implementing or CI: every 10 minutes, dual timestamps, label `WORKING` first. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. Read the worker status file and the GATE log. Do not invent state, PR, SHA, or next action from tmux or chat. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 
 ```text
+WORKING
 Thu Aug 13, 2026, 6:45:00 AM PT
 2026-08-13 06:45:00 PDT
 dev-1 still working track harbor-api (repo#12, SHA abc1234). CI in progress.
 Will check in again in 10 minutes.
+```
+
+```text
+WAITING ON YOU: merge PR #12
+Track harbor-berth-api is AWAITING GATE in the graph. COMMENT on abc1234.
+```
+
+```text
+BLOCKED: implementer logged out on dev-1. CoS is re-picking a logged-in host; not waiting on you.
 ```
 
 ## Human-stop

@@ -157,6 +157,8 @@ Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, securi
 
 If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.
 
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice. Do not phrase that decision as a status.
+
 ## Escalate
 
 Same blocker on one track:
@@ -171,13 +173,21 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
 
-Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Every CoS-visible message starts with one label. Same three labels as [general.md](general.md#heartbeat): **WORKING**, **WAITING ON YOU**, **BLOCKED**. Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux.
+
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. If still blocked on the human after about 30-60 minutes (or the next morning), one reminder that still starts WAITING ON YOU, not a 10-minute drip. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 
 ```text
+WORKING
 Thu Aug 13, 2026, 6:45:00 AM PT
 2026-08-13 06:45:00 PDT
 dev-1 still working track D (repo#123, SHA abc1234). CI in progress.
 Will check in again in 10 minutes.
 ```
 
-Minimum line: `<host> still working, will check in again in 10 minutes.`
+```text
+WAITING ON YOU: merge PR #123
+Track D is AWAITING GATE in the graph. COMMENT on abc1234.
+```
+
+Minimum WORKING line: `WORKING: <host> still working, will check in again in 10 minutes.`

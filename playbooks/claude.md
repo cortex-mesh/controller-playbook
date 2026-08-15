@@ -87,4 +87,4 @@ Rebase onto the latest default branch. Scan files other tracks touch. If rebase 
 
 ## Heartbeat
 
-Poll at least every 10 minutes until the track is complete, blocked, or handed off. Check tmux output, git, PR head, CI, and the progress log. Same three-attempt escalation as the [general playbook](general.md).
+Poll at least every 10 minutes until the track is complete, blocked, or handed off. Check tmux output, git, PR head, CI, and the progress log. Same three-attempt escalation as the [general playbook](general.md). Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED; see [general.md](general.md#heartbeat). Do not go quiet at GATE.
