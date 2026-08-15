@@ -1,0 +1,480 @@
+#!/usr/bin/env python3
+# Preflight for AWAITING GATE / CoS GATE. Facts, not chat.
+#
+# Usage: scripts/gate-preflight [graph.yaml] [--pr n|url] [--sha sha]
+#        [--repo path] [--status file] [--log file] [--node id]
+#        GRAPH= GATE_STATUS= GATE_LOG= also work.
+#
+# Checks: this PR maps to exactly one graph node; COMMENT on this SHA
+# (commit oid required); scripts/pr-size-check; current-head CI green
+# or verified no-CI. Graph facts come from graph-lint. 3-cap and merge
+# order come from --log plus the graph. Does not invent state from tmux.
+#
+# Exit 0 ready. Exit 2 failed checks. Exit 1 usage / probe.
+
+import json, os, re, shutil, subprocess, sys
+
+SCHEMA, STATUS_SCHEMA = "living-graph/v1", "status/v1"
+CAP, REVISE_CAP = 800, 3
+QUIET = ("", "~", "null", "none", "-")
+EVENTS = (
+    "DISPATCH", "REVISE 1", "REVISE 2", "REVISE 3", "SPLIT", "GATE", "HUMAN",
+)
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def die(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def usage():
+    die(
+        "usage: gate-preflight [graph.yaml] [--pr n|url] [--sha sha]\n"
+        "       [--repo path] [--status file] [--log file] [--node id]\n"
+        "This PR → one graph node, COMMENT on this SHA, size, CI or no-CI."
+    )
+
+
+def run(cmd, cwd=None):
+    env = os.environ.copy()
+    env["GH_NO_COLOR"] = "1"
+    try:
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
+    except OSError:
+        return "", "", 1
+    return p.stdout.strip(), p.stderr.strip(), p.returncode
+
+
+def load_yaml(path):
+    try:
+        fh = open(path, encoding="utf-8")
+    except OSError as exc:
+        die("gate-preflight: cannot read %s: %s" % (path, exc))
+    try:
+        import yaml
+        data = yaml.safe_load(fh)
+    except ImportError:
+        fh.close()
+        if not shutil.which("ruby"):
+            die("gate-preflight: need PyYAML or ruby")
+        p = subprocess.run(
+            ["ruby", "-ryaml", "-rjson", "-e",
+             "raw=File.read(ARGV[0]); d=begin; YAML.safe_load(raw, aliases:true); rescue ArgumentError; YAML.safe_load(raw); end; puts JSON.generate(d)",
+             path],
+            capture_output=True, text=True,
+        )
+        if p.returncode:
+            die("gate-preflight: YAML load failed: %s" % p.stderr.strip())
+        data = json.loads(p.stdout)
+    except Exception as exc:
+        die("gate-preflight: YAML parse failed: %s" % exc)
+    else:
+        fh.close()
+    if not isinstance(data, dict):
+        die("gate-preflight: %s root must be a mapping" % path)
+    return data
+
+
+def load_data(path):
+    if path.endswith(".json"):
+        try:
+            data = json.loads(open(path, encoding="utf-8").read())
+        except (OSError, ValueError) as exc:
+            die("gate-preflight: cannot read %s: %s" % (path, exc))
+        if not isinstance(data, dict):
+            die("gate-preflight: %s root must be a mapping" % path)
+        return data
+    return load_yaml(path)
+
+
+def default_graph():
+    env = os.environ.get("GRAPH")
+    if env:
+        return env
+    if os.path.isfile("living-graph.yaml"):
+        return "living-graph.yaml"
+    sample = os.path.join(os.path.dirname(HERE), "examples", "sample-dependency-graph.yaml")
+    return sample if os.path.isfile(sample) else None
+
+
+def parse_pr(pr):
+    if pr is None:
+        return None, None
+    s = str(pr).strip()
+    if s in QUIET:
+        return None, None
+    m = re.search(r"github(?:\.[^/]+)?\.com/([^/]+/[^/]+)/pull/(\d+)", s)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = re.match(r"([^#\s]+)#(\d+)$", s)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = re.match(r"#?(\d+)$", s)
+    if m:
+        return None, int(m.group(1))
+    return None, None
+
+
+def sha_match(a, b):
+    if not a or not b:
+        return False
+    a, b = str(a).lower(), str(b).lower()
+    return a == b or (min(len(a), len(b)) >= 7 and (a.startswith(b) or b.startswith(a)))
+
+
+def filled(val):
+    return val is not None and str(val).strip() not in QUIET
+
+
+def repo_eq(a, b):
+    if not a or not b:
+        return False
+    a, b = a.strip().lower(), b.strip().lower()
+    if a.endswith(".git"):
+        a = a[:-4]
+    if b.endswith(".git"):
+        b = b[:-4]
+    return a == b or a.split("/")[-1] == b or b.split("/")[-1] == a
+
+
+def origin_repo(repo):
+    url, _, rc = run(["git", "-C", repo, "config", "--get", "remote.origin.url"])
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    url = url.rstrip("/")
+    parts = url.replace(":", "/").split("/")
+    return parts[-2] + "/" + parts[-1] if len(parts) >= 2 else (parts[-1] if parts else None)
+
+
+def probe_pr(repo, repo_ref, number):
+    if number is None or not shutil.which("gh"):
+        return None
+    origin = origin_repo(repo)
+    if repo_ref and "/" not in repo_ref:
+        if origin and repo_eq(repo_ref, origin):
+            repo_ref = origin
+        else:
+            return None
+    cmd = ["gh", "pr", "view", str(number),
+           "--json", "number,isDraft,state,headRefOid,url,reviews"]
+    if repo_ref and "/" in repo_ref:
+        cmd.extend(["-R", repo_ref])
+    out, _, rc = run(cmd, cwd=repo)
+    out = re.sub(r"\x1b\[[0-9;]*m", "", out or "")
+    if rc != 0 or not out:
+        return None
+    try:
+        return json.loads(out)
+    except ValueError:
+        return None
+
+
+def comment_on_head(data, head):
+    # GATE requires a review commit oid that matches this SHA.
+    for rev in (data or {}).get("reviews") or []:
+        if not isinstance(rev, dict) or str(rev.get("state", "")).upper() != "COMMENTED":
+            continue
+        commit = rev.get("commit") or {}
+        oid = commit.get("oid") if isinstance(commit, dict) else None
+        if oid and head and sha_match(oid, head):
+            return True
+    return False
+
+
+def probe_ci(repo, repo_ref, number):
+    if number is None or not shutil.which("gh"):
+        return None
+    cmd = ["gh", "pr", "checks", str(number), "--json", "name,state,bucket"]
+    if repo_ref and "/" in repo_ref:
+        cmd.extend(["-R", repo_ref])
+    out, err, rc = run(cmd, cwd=repo)
+    text = ("%s\n%s" % (out, err)).lower()
+    if rc != 0:
+        return "none" if ("no checks" in text or "not found" in text or not out) else None
+    try:
+        checks = json.loads(out or "[]")
+    except ValueError:
+        return None
+    skip, bad, wait = ("skipping", "skip", "neutral"), ("fail", "failed", "failure", "error", "cancel", "cancelled"), ("pending", "queued", "in_progress", "running", "expected")
+    live = []
+    for c in checks or []:
+        b = str(c.get("bucket") or c.get("state") or "").lower()
+        if b not in skip:
+            live.append(b)
+    if not live:
+        return "none"
+    if any(s in bad for s in live):
+        return "red"
+    if any(s in wait for s in live):
+        return "pending"
+    return "green"
+
+
+def size_check(repo):
+    script = os.path.join(HERE, "pr-size-check")
+    if not os.path.isfile(script):
+        return None, 1
+    out, _, rc = run([script], cwd=repo)
+    lines = None
+    for row in (out or "").splitlines():
+        if row.startswith("added_product_lines="):
+            try:
+                lines = int(row.split("=", 1)[1])
+            except ValueError:
+                pass
+    return lines, rc
+
+
+def parse_log(path):
+    rows = []
+    with open(path, encoding="utf-8") as fh:
+        for i, line in enumerate(fh, 1):
+            raw = line.rstrip("\n")
+            if not raw or raw.startswith("#") or raw.startswith("ts\t"):
+                continue
+            bits = raw.split("\t")
+            if len(bits) < 6:
+                die("gate-preflight: %s:%d need 6 TAB columns" % (path, i))
+            ev = bits[1].strip()
+            if ev not in EVENTS:
+                die("gate-preflight: %s:%d unknown event %r" % (path, i, ev))
+            rows.append({"event": ev, "node": bits[2].strip()})
+    return rows
+
+
+def map_node(nodes, want_repo, want_num, branch, named):
+    def pr_hit(n):
+        ref, num = parse_pr(n.get("pr"))
+        if num is None or want_num is None or num != want_num:
+            return False
+        return repo_eq(ref, want_repo) if (ref and want_repo) else True
+
+    by_pr = [n for n in nodes if isinstance(n, dict) and pr_hit(n)]
+    if named:
+        hit = [n for n in nodes if isinstance(n, dict) and n.get("id") == named]
+        if len(hit) != 1:
+            return [], "node %s not in graph" % named
+        if by_pr and by_pr[0].get("id") != named:
+            return by_pr, "PR maps to %s, not --node %s" % (by_pr[0].get("id"), named)
+        if len(by_pr) > 1:
+            return by_pr, "PR maps to %d nodes" % len(by_pr)
+        return hit, None
+    if len(by_pr) == 1:
+        return by_pr, None
+    if len(by_pr) > 1:
+        return by_pr, "PR maps to %d nodes" % len(by_pr)
+    if branch:
+        by_br = [n for n in nodes if isinstance(n, dict) and n.get("branch") == branch]
+        if len(by_br) == 1:
+            return by_br, None
+        if len(by_br) > 1:
+            return by_br, "branch %s maps to %d nodes" % (branch, len(by_br))
+    return [], "PR maps to 0 graph nodes"
+
+
+def take(argv, i, flag):
+    if i >= len(argv):
+        die("gate-preflight: %s needs a value" % flag)
+    return argv[i], i
+
+
+def parse_args(argv):
+    path = os.environ.get("GRAPH")
+    repo = os.environ.get("TRACK_REPO")
+    status = os.environ.get("GATE_STATUS") or os.environ.get("STATUS")
+    log = os.environ.get("GATE_LOG")
+    pr = sha = node = None
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ("-h", "--help"):
+            usage()
+        if arg.startswith("--") and "=" in arg:
+            key, val = arg.split("=", 1)
+            arg, argv, i = key, argv[:i + 1] + [val] + argv[i + 1:], i
+        if arg == "--pr":
+            i += 1
+            pr, i = take(argv, i, arg)
+        elif arg == "--sha":
+            i += 1
+            sha, i = take(argv, i, arg)
+        elif arg == "--repo":
+            i += 1
+            repo, i = take(argv, i, arg)
+        elif arg == "--status":
+            i += 1
+            status, i = take(argv, i, arg)
+        elif arg == "--log":
+            i += 1
+            log, i = take(argv, i, arg)
+        elif arg == "--node":
+            i += 1
+            node, i = take(argv, i, arg)
+        elif arg.startswith("-"):
+            die("gate-preflight: unknown flag %s" % arg)
+        elif path is None or path == os.environ.get("GRAPH"):
+            path = arg
+        else:
+            die("gate-preflight: unexpected argument %s" % arg)
+        i += 1
+    return path, repo or os.getcwd(), pr, sha, status, log, node
+
+
+def shown_path(path):
+    home = os.path.expanduser("~")
+    abs_p = os.path.abspath(path)
+    if os.path.isabs(path) or (home and abs_p.startswith(home + os.sep)):
+        return os.path.basename(path)
+    return path
+
+
+def main(argv):
+    path, repo, pr_arg, sha_arg, status_path, log_path, named = parse_args(argv)
+    if path is None:
+        path = default_graph()
+    if not path:
+        usage()
+    if not os.path.isfile(path):
+        die("gate-preflight: not a file: %s" % path)
+    if not shutil.which("git"):
+        die("gate-preflight: git not found")
+    inside, _, rc = run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"])
+    if rc != 0 or inside.strip() != "true":
+        die("gate-preflight: not a git repository: %s" % repo)
+
+    errors = []
+    lint = os.path.join(HERE, "graph-lint")
+    if not os.path.isfile(lint):
+        die("gate-preflight: graph-lint missing")
+    lout, lerr, lrc = run([lint, path])
+    if lrc == 2:
+        errors.append("graph-lint failed")
+        errors.extend(x for x in (lout + "\n" + lerr).splitlines() if x.startswith("error:"))
+    elif lrc != 0:
+        die("gate-preflight: graph-lint error: %s" % (lout or lerr))
+
+    data = load_yaml(path)
+    if data.get("schema") != SCHEMA:
+        die("gate-preflight: schema must be %s" % SCHEMA)
+    nodes = data.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        die("gate-preflight: nodes must be a non-empty list")
+
+    origin = origin_repo(repo)
+    branch, _, _ = run(["git", "-C", repo, "rev-parse", "--abbrev-ref", "HEAD"])
+    work_sha, _, _ = run(["git", "-C", repo, "rev-parse", "HEAD"])
+    live = None
+    pr_ref, pr_no = parse_pr(pr_arg) if pr_arg else (None, None)
+    if pr_no is None:
+        live = probe_pr(repo, origin, None)
+        # current-branch PR
+        out, _, prc = run(
+            ["gh", "pr", "view", "--json", "number,url,headRefOid,isDraft,state,reviews"],
+            cwd=repo,
+        )
+        if prc == 0 and out:
+            try:
+                live = json.loads(out)
+                pr_no, pr_ref = live.get("number"), origin
+            except ValueError:
+                live = None
+    elif pr_ref is None:
+        pr_ref = origin
+    if pr_no is None:
+        errors.append("no PR: pass --pr or open a draft on this branch")
+
+    matches, why = map_node(nodes, pr_ref or origin, pr_no, branch, named)
+    node = matches[0] if len(matches) == 1 else None
+    if why:
+        errors.append(why)
+    nid = (node or {}).get("id") or "?"
+
+    lines, size_rc = size_check(repo)
+    if size_rc == 2 or (lines is not None and lines >= CAP):
+        errors.append("AWAITING SPLIT: added_product_lines=%s cap=%d" % (lines, CAP))
+    elif size_rc != 0:
+        errors.append("pr-size-check exit %d" % size_rc)
+
+    if live is None and pr_no is not None:
+        live = probe_pr(repo, pr_ref, pr_no)
+    head = sha_arg or (live or {}).get("headRefOid") or work_sha
+    if live and work_sha and head and not sha_match(work_sha, head):
+        errors.append("worktree HEAD %s != PR head %s" % (work_sha, head))
+
+    comment = comment_on_head(live, head) if live else False
+    ci = probe_ci(repo, pr_ref, pr_no) if live else None
+    if status_path:
+        if not os.path.isfile(status_path):
+            die("gate-preflight: not a file: %s" % status_path)
+        rec = load_data(status_path)
+        if rec.get("schema") != STATUS_SCHEMA:
+            errors.append("status schema must be %s" % STATUS_SCHEMA)
+        for key in ("state", "pr", "head_sha", "added_product_lines", "review_round", "next_action"):
+            if key not in rec:
+                errors.append("status missing field %s" % key)
+        if filled(rec.get("pr")) and pr_no is not None:
+            sref, sno = parse_pr(rec.get("pr"))
+            if sno != pr_no or (sref and pr_ref and not repo_eq(sref, pr_ref)):
+                errors.append("status pr %s != live %s#%s" % (rec.get("pr"), pr_ref or "repo", pr_no))
+        if live and filled(rec.get("head_sha")) and head and not sha_match(rec.get("head_sha"), head):
+            errors.append("status head_sha does not match this SHA")
+        try:
+            rnd = int(rec.get("review_round"))
+        except (TypeError, ValueError):
+            rnd = 0
+        if rnd > REVISE_CAP:
+            errors.append("status review_round %s exceeds cap %d" % (rnd, REVISE_CAP))
+        if rec.get("state") == "AWAITING GATE":
+            for i, step in enumerate(rec.get("dod") or []):
+                if not isinstance(step, dict) or step.get("exit") != 0:
+                    errors.append("AWAITING GATE illegal: %s exit %s" % (
+                        (step or {}).get("command", "dod[%d]" % i), (step or {}).get("exit")))
+        if ci is None and rec.get("ci") in ("green", "none", "pending", "red"):
+            ci = rec.get("ci")
+        if not comment and filled(rec.get("comment_url")):
+            if not live or sha_match(rec.get("head_sha"), head):
+                comment = True
+                if not live and filled(rec.get("head_sha")):
+                    head = rec.get("head_sha")
+
+    if not comment:
+        errors.append("no COMMENT review on this SHA")
+    if ci is None:
+        errors.append("cannot verify current-head CI (pass --status ci=none if no-CI)")
+    elif ci == "pending":
+        errors.append("COMMENT waits for current-head CI (pending)")
+    elif ci == "red":
+        errors.append("current-head CI is red")
+
+    log_rows = []
+    if log_path:
+        if not os.path.isfile(log_path):
+            die("gate-preflight: not a file: %s" % log_path)
+        log_rows = parse_log(log_path)
+        nrev = sum(1 for r in log_rows if r["node"] == nid and r["event"].startswith("REVISE"))
+        if nrev > REVISE_CAP:
+            errors.append("GATE log REVISE count %d exceeds cap %d" % (nrev, REVISE_CAP))
+
+    print("graph=%s" % shown_path(path))
+    print("pr=%s#%s" % (pr_ref or "repo", pr_no or "?"))
+    print("node=%s" % nid)
+    print("head=%s" % (head or "?"))
+    print("comment=%s" % ("yes" if comment else "no"))
+    print("added_product_lines=%s" % (lines if lines is not None else "?"))
+    print("ci=%s" % (ci or "?"))
+    print("errors=%d" % len(errors))
+    for msg in errors:
+        print("error: %s" % msg)
+    if log_rows:
+        gated = [r["node"] for r in log_rows if r["event"] == "GATE" and r["node"] != "~"]
+        print("merge_order=%s" % (",".join(gated) if gated else "~"))
+        print("human=%s" % ("yes" if any(r["event"] == "HUMAN" for r in log_rows) else "no"))
+    sys.exit(2 if errors else 0)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

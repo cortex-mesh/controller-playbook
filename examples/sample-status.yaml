@@ -1,0 +1,20 @@
+# Worker-written status for Harbor Track A (fictional).
+# Schema: status.schema.yaml
+# Graph facts: sample-dependency-graph.yaml (graph-lint / track-status).
+# CoS reads this file. Do not invent these fields from tmux.
+
+schema: status/v1
+node: harbor-berth-api
+state: AWAITING GATE
+pr: example-app#12
+head_sha: abc1234
+added_product_lines: 240
+review_round: 0
+next_action: GATE
+comment_url: https://github.com/example/example-app/pull/12#pullrequestreview-1
+ci: none
+branch: feat/berth-api
+dod:
+  - command: make check
+    exit: 0
+    note: product CI-equivalent; AWAITING GATE is illegal until this exits 0

@@ -14,6 +14,7 @@ While any track is **implementing or in CI**, the CoS emits a **dual-timestamped
 A watchdog (a scheduled CoS routine, or a tmux loop that only repeats an authorized step) may:
 
 - inspect tmux, git, PR head, and CI
+- read the worker status file, `scripts/track-status`, and the append-only GATE log. Do not invent state, PR, SHA, or next action from tmux output or chat.
 - infer `AWAITING GATE` from git/PR when the pane is gone (draft PR + COMMENT on this head + SHA). A missing pane is not a dead track. Do not re-dispatch.
 - take the next already-authorized repo-safe step
 - refuse to double-dispatch a progressing track

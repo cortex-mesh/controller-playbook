@@ -82,6 +82,9 @@ Still use a dedicated git worktree per track. Still split implementer and review
 - [Meta-repo](docs/meta-repo.md) — map vs product repos
 - [Method ADRs](docs/adr/README.md)
 - [Sample dependency graph](examples/sample-dependency-graph.md)
+- [Worker status schema](examples/status.schema.yaml) — worker writes; CoS reads. Heartbeat and GATE do not invent state from tmux.
+- [GATE log example](examples/sample-gate-log.tsv) — append-only DISPATCH / REVISE 1–3 / SPLIT / GATE / HUMAN
+- `scripts/gate-preflight` — this PR → one graph node, COMMENT on this SHA, size, CI or verified no-CI
 
 ## Pages
 

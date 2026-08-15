@@ -1,0 +1,87 @@
+# Worker-written track status. CoS / heartbeat / GATE read this file.
+# Graph facts stay in the living graph (graph-lint / track-status).
+# The CoS does not invent state, PR, SHA, or next action from tmux or chat.
+# Live file is local (next to the graph, or STATUS=). This is the contract.
+
+$schema: http://json-schema.org/draft-07/schema#
+title: Worker track status
+type: object
+required:
+  - schema
+  - state
+  - pr
+  - head_sha
+  - added_product_lines
+  - review_round
+  - next_action
+additionalProperties: true
+properties:
+  schema:
+    const: status/v1
+  node:
+    type: string
+    minLength: 1
+    description: Graph node id. Pointer only; the YAML graph owns the node.
+  state:
+    type: string
+    enum:
+      - PENDING
+      - AWAITING LOGIN
+      - DISPATCHED
+      - IMPLEMENTING
+      - CI
+      - AWAITING GATE
+      - AWAITING SPLIT
+      - REVISE
+      - MERGED
+      - DEAD
+  pr:
+    type: ["string", "null"]
+    description: Draft PR (owner/repo#n, repo#n, n, or URL). Empty/null if none.
+  head_sha:
+    type: ["string", "null"]
+  added_product_lines:
+    type: integer
+    minimum: 0
+    description: Product-line count from scripts/pr-size-check.
+  review_round:
+    type: integer
+    minimum: 0
+    maximum: 3
+    description: Current REVISE round. 0 means no REVISE yet. Cap is 3.
+  next_action:
+    type: string
+    enum:
+      - IMPLEMENT
+      - COMMENT
+      - GATE
+      - REVISE
+      - SPLIT
+      - HUMAN
+      - WAIT
+    description: What happens next. Not a vibe. CoS reads this field.
+  comment_url:
+    type: string
+    description: COMMENT review URL on this head. Not an Approve.
+  ci:
+    type: string
+    enum: [green, none, pending, red]
+    description: Current-head CI on this SHA. none = verified no-CI.
+  branch:
+    type: string
+  dod:
+    type: array
+    description: Phase definition of done as commands, not prose.
+    items:
+      type: object
+      required: [command, exit]
+      additionalProperties: true
+      properties:
+        command:
+          type: string
+          minLength: 1
+        exit:
+          type: integer
+          description: Process exit code. AWAITING GATE is illegal if any exit != 0.
+        note:
+          type: string

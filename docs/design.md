@@ -21,8 +21,8 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 4. **Dispatch to a free logged-in worker.** Check tmux and existing sessions first. Login is a per-host input. A logged-out host does not block the wave: re-pick and write the new owner into the graph. If dispatch fails, escalate; the CoS does not become the implementer.
 5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Run the product repo CI-equivalent check; push only if green. Mutation-test new tests. Skip staging — CoS-only.
 6. **Draft PR, wait for this-SHA CI, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
-7. **Report `AWAITING GATE`** with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`.
-8. **CoS repo gate.** Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
+7. **Write the status file.** Run `scripts/gate-preflight`. Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they pass.
+8. **CoS repo gate.** Read status + GATE log + graph. Run `scripts/gate-preflight`. Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
 9. **REVISE or GATE.** After GATE the CoS marks the draft ready and serializes overlapping merges. Watch default-branch CI after merge. Same blocker: evidence, one REVISE, then stop and escalate.
 10. **Staging gate (CoS-only).** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
 11. **Human production.** Workers never dispatch production.

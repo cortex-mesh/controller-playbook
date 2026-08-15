@@ -31,7 +31,7 @@ Size is the backstop. Grouping is the method.
 
 The CoS writes phases **before dispatch**, in the living graph and the goal prompt. Each phase is one graph node, one PR, and one mergeable outcome a reviewer can hold in their head.
 
-The living graph is YAML ([schema](../examples/living-graph.schema.yaml), [Harbor example](../examples/sample-dependency-graph.yaml)). The markdown table is the human snapshot. Before a wave, run `scripts/graph-lint` on the YAML. Lint fails on a missing required field, two outcomes on one node, overlapping in-flight file globs, REVISE rounds above 3, or an over-cap / `AWAITING SPLIT` node marked `AWAITING GATE`.
+The living graph is YAML ([schema](../examples/living-graph.schema.yaml), [Harbor example](../examples/sample-dependency-graph.yaml)). The markdown table is the human snapshot. Before a wave, run `scripts/graph-lint` on the YAML. Lint fails on a missing required field, two outcomes on one node, overlapping in-flight file globs, REVISE rounds above 3, or an over-cap / `AWAITING SPLIT` node marked `AWAITING GATE`. Graph facts stay there: `scripts/graph-lint` and `scripts/track-status` are the source. Do not copy them into chat.
 
 **Mapping:** phase N → graph node → one PR → one outcome.
 
@@ -54,6 +54,17 @@ CoS writes phases (graph + goal prompt) → dispatch each unblocked track
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Production stays a human gate.
 
+## Runtime facts
+
+Heartbeat and GATE read files, not chat. The CoS does not invent state, PR, SHA, product lines, review round, or next action from tmux output.
+
+- **Graph.** Living YAML via `scripts/graph-lint` and `scripts/track-status`.
+- **Worker status.** [schema](../examples/status.schema.yaml), [Harbor example](../examples/sample-status.yaml). The worker writes; the CoS reads. Required: `state`, `pr`, `head_sha`, `added_product_lines`, `review_round`, `next_action`. Live file is local (`STATUS=` or next to the graph).
+- **GATE log.** Append-only ([example](../examples/sample-gate-log.tsv)). Events: `DISPATCH`, `REVISE 1`, `REVISE 2`, `REVISE 3`, `SPLIT`, `GATE`, `HUMAN`. Survives a new chat. 3-cap and merge order come from this log plus the graph YAML. There is no `REVISE 4`.
+- **Preflight.** Before `AWAITING GATE` / before GATE, run `scripts/gate-preflight`. It fails unless this PR maps to exactly one graph node, a COMMENT review is on this SHA, `scripts/pr-size-check` is green, and current-head CI is green or verified no-CI.
+
+A missing pane is still not DEAD. Infer from status + `scripts/track-status`, not from poetry in the pane.
+
 ## Dispatch checklist
 
 1. Read the goal progress log. Name the next incomplete **worker** phase (one graph node, one PR, one outcome). Do not dispatch staging or last integration.
@@ -67,7 +78,7 @@ Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration 
 
 If the controller cannot paste into tmux, write the instruction to a file and send a short Read of that file.
 
-A missing tmux pane is not a dead track. Run `scripts/track-status` and infer `DISPATCHED` / `AWAITING GATE` / `DEAD` from git, PR, and tmux facts. A missing pane is not a re-dispatch if a draft PR exists. Infer `AWAITING GATE` from draft PR + COMMENT on this head + SHA.
+A missing tmux pane is not a dead track. Run `scripts/track-status` and infer `DISPATCHED` / `AWAITING GATE` / `DEAD` from git, PR, and tmux facts. Read the worker status file. Do not invent those fields from tmux. A missing pane is not a re-dispatch if a draft PR exists. Infer `AWAITING GATE` from draft PR + COMMENT on this head + SHA.
 
 If dispatch fails, escalate dispatch. The CoS does not implement.
 
@@ -81,6 +92,8 @@ If dispatch fails, escalate dispatch. The CoS does not implement.
 - Before opening a draft PR, run `scripts/pr-size-check` (see [PR size](#pr-size)). If it exits non-zero / prints `AWAITING SPLIT`, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split.
 - Open a **draft** PR only when it is still one outcome and under the hard cap. Never `gh pr ready`.
 - After current-head CI is green on this SHA, run the reviewer CLI from a clean tree. Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff.
+- Write the worker status file (schema above). Phase DoD is the product check commands (`make check`, or the exact commands from that repo CI). `AWAITING GATE` is illegal until those commands exit 0. If there is no `make check` and no current-head CI, record `ci: none` and say so.
+- Run `scripts/gate-preflight` before reporting `AWAITING GATE`.
 - Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
 - Stop. Never self-merge. Never ship production. Never start staging.
 
@@ -150,7 +163,7 @@ gh pr review "$PR" --comment --body-file "$VERDICT"
 
 ## CoS gate
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check`. A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
+1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check against other live tracks. Rebase on the latest default branch.
 3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm a COMMENT review exists for **this** head.
@@ -180,7 +193,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Implementing or CI: every 10 minutes, dual timestamps. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. Read the worker status file and the GATE log. Do not invent state, PR, SHA, or next action from tmux or chat. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
 
 ```text
 Thu Aug 13, 2026, 6:45:00 AM PT

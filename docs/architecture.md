@@ -111,6 +111,8 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 | Repo gate | CI-equivalent check, COMMENT after this-SHA CI, CI on this SHA |
 | Staging gate | CoS-only after merge; live GET `/health` |
 | CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, merge, staging verify |
+| Status file | worker-written; CoS reads ([schema](../examples/status.schema.yaml)) |
+| GATE log | append-only DISPATCH / REVISE 1–3 / SPLIT / GATE / HUMAN |
 
 ## Watchdog
 
@@ -118,7 +120,7 @@ The CoS cannot sit in one turn forever. A 10-minute routine (or a tmux watchdog 
 
 - Heartbeat while implementing or in CI (dual timestamps), including "still working."
 - `AWAITING GATE`: one immediate notice, then quiet until CoS REVISE or GATE.
-- Inspect tmux, git, PR head, and CI. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
+- Inspect tmux, git, PR head, and CI. Read the worker [status file](../examples/status.schema.yaml) and the [GATE log](../examples/sample-gate-log.tsv). Do not invent state from tmux. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
 - Take the next already-authorized repo-safe step. Do not become the implementer when dispatch fails.
 - Do not double-dispatch a progressing track.
 - Same blocker: (1) evidence, (2) one REVISE, (3) stop the track and escalate. No attempt 4. Independent tracks continue.
