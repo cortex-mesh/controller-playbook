@@ -10,7 +10,9 @@ CI-equivalent check (`make check`, or the exact commands from that repo
 CI). Push only if it is green. Fail = do not push, do not open the draft.
 Run `scripts/pr-size-check` before opening a draft PR. Over cap →
 `AWAITING SPLIT` (do not open a megadiff). Under cap: draft PR, wait until
-CI is green on this SHA, then COMMENT. Report AWAITING GATE with branch,
+CI is green on this SHA, then COMMENT. Phase DoD is those check commands.
+`AWAITING GATE` is illegal until they exit 0. Write the worker status
+file. Run `scripts/gate-preflight`. Report AWAITING GATE with branch,
 PR, head SHA, and COMMENT review URL. Never `gh pr ready`. If the product
 repo has no `make check`, or CI does not run on this SHA, say so in that report.
 
@@ -116,9 +118,15 @@ GATE and serializes merge. Staging is CoS-only.
 
 ## Definition of done (per phase)
 
-- Phase 0: ADRs merged or gated, architecture in-tree.
-- Phase 1: API PR gated, conflict rule mutation-tested.
-- Phase 2: UI PR gated, real API exercised.
+Each phase lists the exact commands. `AWAITING GATE` is illegal until
+they exit 0. If Harbor has no `make check` and no current-head CI, record
+`ci: none` in the status file.
+
+- Phase 0: `make check` (or the exact commands from example-app CI) exit 0;
+  ADRs in-tree.
+- Phase 1: `make check` exit 0; conflict-rule mutation test fails without
+  the fix.
+- Phase 2: `make check` exit 0; real API exercised, not a fixture-only page.
 - Phase 3: CoS live-verified staging. Workers do not execute this phase. No
   production.
 

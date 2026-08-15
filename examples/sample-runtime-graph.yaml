@@ -1,0 +1,25 @@
+# Example living graph for the status / GATE-log / gate-preflight wave.
+# Harbor remains the product example (sample-dependency-graph.yaml).
+# Lint: scripts/graph-lint. Infer: scripts/track-status.
+# Placeholders only. No names, IPs, or real hosts.
+
+schema: living-graph/v1
+goal: status contract + GATE log + gate-preflight
+nodes:
+  - id: runtime-contract
+    phase: 1
+    outcome: worker status schema, append-only GATE log, and gate-preflight
+    files:
+      - examples/status.schema.yaml
+      - examples/sample-status.yaml
+      - examples/sample-gate-log.tsv
+      - examples/sample-runtime-graph.yaml
+      - scripts/gate-preflight
+    pr: ~
+    head_sha: ~
+    state: DISPATCHED
+    review_rounds: 0
+    over_cap: false
+    branch: feat/runtime-contract
+    tmux: gone
+    depends_on: []

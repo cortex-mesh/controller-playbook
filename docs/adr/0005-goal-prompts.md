@@ -13,7 +13,7 @@ A **goal prompt** is a long, versioned document that every session re-reads:
 
 - Header names the CoS and a worker **pool**, not a single immortal machine.
 - Locked decisions are numbered and not reopened by workers.
-- Phases start with docs/ADRs. Each phase has a definition of done.
+- Phases start with docs/ADRs. Each phase has a definition of done: the exact product check commands (`make check`, or the exact commands from that repo CI), not a prose vibe. `AWAITING GATE` is illegal until those commands exit 0.
 - A progress log is updated in place. History is not silently rewritten.
 - Model policy and launch shape match the chosen controller playbook.
 - Autonomy is explicit. The human-stop list is explicit.

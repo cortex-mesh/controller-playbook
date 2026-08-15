@@ -27,7 +27,7 @@ ssh user@host 'git -C <repo> fetch origin -q && git -C <repo> worktree add <work
 
 Default tmux `remain-on-exit` is off. A finished `grok -p` then destroys the only pane, so `AWAITING GATE` and failures vanish between heartbeats. Set `remain-on-exit on` before the process can exit, tee stdout/stderr to `$HOME/.grok/logs/<track>.log`, and capture from the pane **or** that log.
 
-If tmux is gone later, infer `AWAITING GATE` from git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not re-dispatch.
+If tmux is gone later, infer `AWAITING GATE` from the worker status file plus git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not invent state from tmux. Do not re-dispatch.
 
 ## First phase
 
@@ -40,7 +40,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -60,7 +60,7 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Run the product repo CI-equivalent check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE. COMMENT only after this-SHA CI is green.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Phase DoD is the product check commands; AWAITING GATE is illegal until they exit 0. Run that check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE. COMMENT only after this-SHA CI is green. Write the status file. Run scripts/gate-preflight.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 

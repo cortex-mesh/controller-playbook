@@ -1,0 +1,21 @@
+# Append-only GATE log (gate-log/v1). Never edit or reorder rows.
+# A new chat reads this file. It does not invent DISPATCH / REVISE / GATE
+# from tmux or chat. 3-cap and merge order come from this log plus the
+# living graph YAML (graph-lint / track-status).
+#
+# Events: DISPATCH | REVISE 1 | REVISE 2 | REVISE 3 | SPLIT | GATE | HUMAN
+# There is no REVISE 4 — escalate. GATE is CoS-only. HUMAN is the
+# production (or other human-stop) row.
+#
+# Columns (TAB): ts, event, node, pr, head_sha, note
+# ts is ISO-8601 UTC. pr and head_sha are ~ until known.
+# note has no names, IPs, or hosts.
+ts	event	node	pr	head_sha	note
+2026-08-13T16:00:00Z	DISPATCH	harbor-docs	~	~	phase 0
+2026-08-13T16:45:00Z	GATE	harbor-docs	example-app#11	aaa0001	COMMENT on head; merge first
+2026-08-13T17:00:00Z	DISPATCH	harbor-berth-api	~	~	unblocked after harbor-docs
+2026-08-13T17:01:00Z	DISPATCH	harbor-operator-ui	~	~	parallel; files do not overlap
+2026-08-13T18:05:00Z	GATE	harbor-berth-api	example-app#12	abc1234	COMMENT on head; ci=none
+2026-08-13T19:00:00Z	REVISE 1	harbor-operator-ui	example-app#13	def5678	conflict banner missing
+2026-08-13T19:40:00Z	GATE	harbor-operator-ui	example-app#13	aa11bb2	COMMENT on new head
+2026-08-13T20:00:00Z	HUMAN	~	~	~	production remains human

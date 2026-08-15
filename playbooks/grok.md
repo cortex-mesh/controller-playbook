@@ -72,7 +72,7 @@ tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
      -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. In the assigned worktree, run the product repo CI-equivalent check (make check, or the exact commands from that repo CI). Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -90,11 +90,13 @@ else
 fi
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
-     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Run the product repo CI-equivalent check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE. COMMENT only after this-SHA CI is green.' \
+     --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Phase DoD is the product check commands; AWAITING GATE is illegal until they exit 0. Run that check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE. COMMENT only after this-SHA CI is green. Write the status file. Run scripts/gate-preflight.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
-If tmux is gone, infer `AWAITING GATE` from git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not re-dispatch. Keep `remain-on-exit`, the durable log, and later-phase pane respawn. Respawn a later-phase pane only to continue an incomplete worker phase.
+If tmux is gone, infer `AWAITING GATE` from the worker status file plus git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not invent state from tmux. Do not re-dispatch. Keep `remain-on-exit`, the durable log, and later-phase pane respawn. Respawn a later-phase pane only to continue an incomplete worker phase.
+
+Heartbeat and GATE read [status](../examples/status.schema.yaml) + `scripts/track-status` + the append-only [GATE log](../examples/sample-gate-log.tsv). Run `scripts/gate-preflight` before `AWAITING GATE`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they exit 0. See [Runtime facts](general.md#runtime-facts).
 
 If the controller cannot paste into tmux, write the instruction to a file and send a short Read of that file.
 
@@ -141,7 +143,7 @@ Never Approve. Never review the PR in the same Grok session that wrote it. A fre
 
 Agent-side Sol/high is already the different-family check. Default CoS gate is **not** a second Sol pass on every low-risk diff:
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Then run `scripts/pr-size-check` (mechanical [PR size](general.md#pr-size) check). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
+1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check; rebase; serialize merges.
 3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm COMMENT exists for **this** head.
@@ -169,7 +171,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
 
-`AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
 
 ```text
 Thu Aug 13, 2026, 6:45:00 AM PT

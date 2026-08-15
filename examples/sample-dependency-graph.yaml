@@ -2,7 +2,8 @@
 # Human snapshot: sample-dependency-graph.md
 # Schema: living-graph.schema.yaml
 # Lint: scripts/graph-lint
-# Status: scripts/track-status
+# Infer: scripts/track-status
+# Worker status: sample-status.yaml. GATE log: sample-gate-log.tsv.
 # Placeholders only. No names, IPs, or real hosts.
 
 schema: living-graph/v1

@@ -35,7 +35,9 @@ CI-equivalent check (`make check`, or the exact commands from that repo
 CI). Push only if it is green. Fail = do not push, do not open the draft.
 Run `scripts/pr-size-check` before opening a draft PR. Over cap →
 `AWAITING SPLIT` (do not open a megadiff). Under cap: draft PR, wait until
-CI is green on this SHA, then COMMENT. Report AWAITING GATE with branch,
+CI is green on this SHA, then COMMENT. Phase DoD is those check commands,
+not prose. `AWAITING GATE` is illegal until they exit 0. Write the worker
+status file. Run `scripts/gate-preflight`. Report AWAITING GATE with branch,
 PR, head SHA, and COMMENT review URL. Never `gh pr ready`. If the product
 repo has no `make check`, or CI does not run on this SHA, say so in that report.
 
@@ -48,7 +50,7 @@ repo has no `make check`, or CI does not run on this SHA, say so in that report.
 ## Model policy    — writer vs different-family reviewer
 ## Workflow (per PR)
 ## Verification (every phase)
-## Definition of done (per phase)
+## Definition of done (per phase)  — exact commands (`make check` / CI-equivalent); AWAITING GATE illegal until they exit 0
 ## Progress log    — Phase | Status | PRs / ADRs | Notes
 ```
 
@@ -57,9 +59,10 @@ repo has no `make check`, or CI does not run on this SHA, say so in that report.
 - **Worker pool:** hosts, fit, max sessions. Placeholders: `dev-1`, `ci-box`, `user@host`. CoS picks a free host per track. Do not hard-code one machine as the only implementer unless the pool truly has one row.
 - **Phase 0** is always docs/ADRs. Code after. Staging / last integration is CoS-only; do not list it as a worker phase to execute.
 - **Model policy:** writer CLI writes. Review is a different family. `gh pr review --comment`, never Approve. Never tell the worker to review itself. A fresh Grok session is not an acceptable reviewer of a Grok implementation.
-- **Workflow:** git worktree per track; conventional commits; product repo CI-equivalent check in the worktree before push (`make check`, or the exact commands from that repo CI — not a looser local subset; red = do not push); mutation-test new tests; run `scripts/pr-size-check` before the draft (over cap → `AWAITING SPLIT`, do not open a megadiff; file count is a smell, not a fail); draft PR; COMMENT only after current-head CI is green; `AWAITING GATE`; workers never `gh pr ready`; CoS marks ready and serializes merges. No production dispatch. See [playbooks/general.md](../../playbooks/general.md#cicd).
+- **Workflow:** git worktree per track; conventional commits; product repo CI-equivalent check in the worktree before push (`make check`, or the exact commands from that repo CI — not a looser local subset; red = do not push); mutation-test new tests; run `scripts/pr-size-check` before the draft (over cap → `AWAITING SPLIT`, do not open a megadiff; file count is a smell, not a fail); draft PR; COMMENT only after current-head CI is green; write the [status file](../../examples/status.schema.yaml); run `scripts/gate-preflight`; `AWAITING GATE`; workers never `gh pr ready`; CoS marks ready and serializes merges. No production dispatch. See [playbooks/general.md](../../playbooks/general.md#cicd).
+- **Definition of done:** each phase lists the exact commands (`make check`, or the exact commands from that repo CI). `AWAITING GATE` is illegal until those commands exit 0. If there is no `make check` and no current-head CI, record `ci: none`.
 - **Autonomy:** in-scope work does not stop to ask. Human-only: production, secret creation, destructive data, spend above the locked cap, interactive auth, DNS. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
-- **Heartbeat:** CoS every 10 minutes while implementing or in CI, dual timestamps, including "still working." `AWAITING GATE` or `AWAITING SPLIT` is one immediate notice, then quiet until REVISE, GATE, or a graph update and re-dispatch.
+- **Heartbeat:** CoS every 10 minutes while implementing or in CI, dual timestamps, including "still working." Read the worker status file, `scripts/track-status`, and the [GATE log](../../examples/sample-gate-log.tsv). Do not invent state from tmux. `AWAITING GATE` or `AWAITING SPLIT` is one immediate notice, then quiet until REVISE, GATE, or a graph update and re-dispatch.
 
 ## Hard rules
 

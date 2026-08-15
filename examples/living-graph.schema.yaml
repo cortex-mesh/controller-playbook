@@ -1,6 +1,8 @@
 # Living dependency graph — JSON Schema (draft-07) in YAML.
 # Markdown snapshots stay for humans. Lint: scripts/graph-lint.
 # Infer DISPATCHED / AWAITING GATE / DEAD: scripts/track-status.
+# Worker status is a separate file (status.schema.yaml). GATE log is
+# append-only (sample-gate-log.tsv). Do not copy those into this graph.
 # No names, IPs, or real host inventory in a public graph.
 
 $schema: http://json-schema.org/draft-07/schema#
