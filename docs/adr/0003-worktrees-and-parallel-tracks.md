@@ -22,6 +22,7 @@ Two agents in one checkout overwrite each other. Two agents on overlapping files
 ## Consequences
 
 - Dispatch requires a dependency graph that names phases, outcomes, overlaps, and blast radius before a wave starts. Soft split happens in the graph, not as a post-hoc justification of a megadiff.
+- The living graph is machine-checkable YAML (`examples/living-graph.schema.yaml`). The markdown snapshot stays for humans. `scripts/graph-lint` checks required fields, one outcome per node, in-flight file-glob overlap, REVISE rounds ≤ 3, and that over-cap / `AWAITING SPLIT` nodes are not `AWAITING GATE`. `scripts/track-status` infers `DISPATCHED` / `AWAITING GATE` / `DEAD` from git, PR, and tmux facts. A missing pane is not a re-dispatch when a draft PR exists.
 - A worker must not add a second outcome to the same PR.
 - The CoS clobber-checks before merge and rebases onto the latest default branch.
 - Tooling that claims to create a worktree in headless mode is not a substitute for `git worktree add`.

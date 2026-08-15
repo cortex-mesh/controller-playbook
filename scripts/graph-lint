@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+# Lint a living dependency graph (YAML). No network.
+#
+# Usage: scripts/graph-lint [graph.yaml]
+#        GRAPH=/path/to/graph.yaml scripts/graph-lint
+#
+# Required node fields: id, phase, outcome, files, pr, head_sha,
+# state, review_rounds.
+# Fails on: missing fields, two outcomes, overlapping in-flight
+# file globs, review_rounds > 3, over-cap / AWAITING SPLIT marked
+# AWAITING GATE.
+#
+# Exit 0 clean. Exit 2 lint failures. Exit 1 usage / parse.
+
+import fnmatch
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+SCHEMA = "living-graph/v1"
+REQUIRED = (
+    "id", "phase", "outcome", "files", "pr", "head_sha", "state", "review_rounds",
+)
+STATES = (
+    "PENDING", "AWAITING LOGIN", "DISPATCHED", "IMPLEMENTING", "CI",
+    "AWAITING GATE", "AWAITING SPLIT", "REVISE", "MERGED", "DEAD",
+)
+IN_FLIGHT = (
+    "DISPATCHED", "IMPLEMENTING", "CI", "AWAITING GATE", "AWAITING SPLIT", "REVISE",
+)
+CAP, REVISE_CAP = 800, 3
+
+
+def die(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def usage():
+    die(
+        "usage: graph-lint [graph.yaml]\n"
+        "Lint living-graph/v1 YAML. Exit 0 clean, 2 lint, 1 usage/parse."
+    )
+
+
+def load_yaml(path):
+    try:
+        fh = open(path, encoding="utf-8")
+    except OSError as exc:
+        die("graph-lint: cannot read %s: %s" % (path, exc))
+    try:
+        import yaml
+        data = yaml.safe_load(fh)
+    except ImportError:
+        fh.close()
+        if not shutil.which("ruby"):
+            die("graph-lint: need PyYAML or ruby")
+        proc = subprocess.run(
+            ["ruby", "-ryaml", "-rjson", "-e",
+             "raw=File.read(ARGV[0]); d=begin; YAML.safe_load(raw, aliases:true); rescue ArgumentError; YAML.safe_load(raw); end; puts JSON.generate(d)",
+             path],
+            capture_output=True, text=True,
+        )
+        if proc.returncode:
+            die("graph-lint: YAML load failed: %s" % proc.stderr.strip())
+        data = json.loads(proc.stdout)
+    except Exception as exc:
+        die("graph-lint: YAML parse failed: %s" % exc)
+    else:
+        fh.close()
+    if not isinstance(data, dict):
+        die("graph-lint: root must be a mapping")
+    return data
+
+
+def default_graph():
+    env = os.environ.get("GRAPH")
+    if env:
+        return env
+    if os.path.isfile("living-graph.yaml"):
+        return "living-graph.yaml"
+    sample = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "examples", "sample-dependency-graph.yaml",
+    )
+    return sample if os.path.isfile(sample) else None
+
+
+def parts(glob):
+    g = glob.replace("\\", "/").strip()
+    if g.startswith("./"):
+        g = g[2:]
+    return tuple(p for p in g.split("/") if p)
+
+
+def segs_match(a, b):
+    if a == b or "*" in (a, b) or "**" in (a, b):
+        return True
+    if fnmatch.fnmatch(a, b) or fnmatch.fnmatch(b, a):
+        return True
+    # Two wildcard segments: assume overlap unless we can prove disjoint.
+    # src/a* vs src/*b both own src/ab; fnmatch of one pattern on the
+    # other literal misses that intersection.
+    wild = lambda s: any(ch in s for ch in "*?[")
+    return wild(a) and wild(b)
+
+
+def globs_overlap(ga, gb):
+    a, b = parts(ga), parts(gb)
+
+    def walk(i, j):
+        if i == len(a) and j == len(b):
+            return True
+        if i < len(a) and a[i] == "**":
+            return walk(i + 1, j) or (j < len(b) and walk(i, j + 1))
+        if j < len(b) and b[j] == "**":
+            return walk(i, j + 1) or (i < len(a) and walk(i + 1, j))
+        if i == len(a) or j == len(b):
+            return False
+        return segs_match(a[i], b[j]) and walk(i + 1, j + 1)
+
+    return walk(0, 0)
+
+
+def is_str(v):
+    return isinstance(v, str) and v.strip() != ""
+
+
+def is_uint(v):
+    return isinstance(v, int) and not isinstance(v, bool) and v >= 0
+
+
+def main(argv):
+    if argv and argv[0] in ("-h", "--help"):
+        usage()
+    path = argv[0] if argv else default_graph()
+    if not path or not os.path.isfile(path):
+        usage() if not path else die("graph-lint: not a file: %s" % path)
+
+    data = load_yaml(path)
+    errors = []
+    if data.get("schema") != SCHEMA:
+        errors.append("schema must be %s" % SCHEMA)
+    nodes = data.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        errors.append("nodes must be a non-empty list")
+        nodes = []
+
+    seen, inflight = {}, []
+    for i, node in enumerate(nodes):
+        loc = "nodes[%d]" % i
+        if not isinstance(node, dict):
+            errors.append("%s: must be a mapping" % loc)
+            continue
+        nid = node.get("id")
+        if is_str(nid):
+            loc = nid
+            if nid in seen:
+                errors.append("duplicate id %s" % nid)
+            seen[nid] = i
+        else:
+            errors.append("%s: id must be a non-empty string" % loc)
+        for key in REQUIRED:
+            if key not in node:
+                errors.append("%s: missing field %s" % (loc, key))
+        if "outcomes" in node:
+            errors.append("%s: use outcome (one string), not outcomes" % loc)
+        outcome = node.get("outcome")
+        if "outcome" in node and not is_str(outcome):
+            errors.append("%s: outcome must be one non-empty string" % loc)
+        phase = node.get("phase")
+        if "phase" in node and not is_uint(phase) and not is_str(phase):
+            errors.append("%s: phase must be a non-negative integer or string" % loc)
+        files = node.get("files")
+        if "files" in node:
+            if not isinstance(files, list) or not files:
+                errors.append("%s: files must be a non-empty list of globs" % loc)
+                files = []
+            elif any(not is_str(g) for g in files):
+                errors.append("%s: files entries must be non-empty strings" % loc)
+        if "pr" in node and node["pr"] is not None and not isinstance(node["pr"], str):
+            errors.append("%s: pr must be a string or null" % loc)
+        if "head_sha" in node and node["head_sha"] is not None and not isinstance(node["head_sha"], str):
+            errors.append("%s: head_sha must be a string or null" % loc)
+        state = node.get("state")
+        if "state" in node:
+            if isinstance(state, list):
+                errors.append("%s: state must be one value, not a list" % loc)
+            elif state not in STATES:
+                errors.append("%s: unknown state %r" % (loc, state))
+        rounds = node.get("review_rounds")
+        if "review_rounds" in node and not is_uint(rounds):
+            errors.append("%s: review_rounds must be an integer 0..%d" % (loc, REVISE_CAP))
+        elif is_uint(rounds) and rounds > REVISE_CAP:
+            errors.append("%s: REVISE rounds %d exceed cap %d" % (loc, rounds, REVISE_CAP))
+        over = node.get("over_cap")
+        if over is not None and not isinstance(over, bool):
+            errors.append("%s: over_cap must be a boolean" % loc)
+            over = False
+        lines = node.get("added_product_lines")
+        if lines is not None and not is_uint(lines):
+            errors.append("%s: added_product_lines must be a non-negative integer" % loc)
+            lines = None
+        if lines is not None and lines >= CAP:
+            over = True
+        if state == "AWAITING GATE" and (over is True or node.get("awaiting_split") is True):
+            errors.append("%s: over-cap / AWAITING SPLIT cannot be AWAITING GATE" % loc)
+        if state in IN_FLIGHT and isinstance(files, list):
+            inflight.append((loc, [g for g in files if is_str(g)]))
+
+    for i, (aid, afiles) in enumerate(inflight):
+        for bid, bfiles in inflight[i + 1:]:
+            for ga in afiles:
+                for gb in bfiles:
+                    if globs_overlap(ga, gb):
+                        errors.append("in-flight file overlap: %s %r vs %s %r" % (aid, ga, bid, gb))
+
+    print("graph=%s" % path)
+    print("nodes=%d" % len(nodes))
+    print("errors=%d" % len(errors))
+    for msg in errors:
+        print("error: %s" % msg)
+    sys.exit(2 if errors else 0)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

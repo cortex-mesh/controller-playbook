@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+# Infer DISPATCHED / AWAITING GATE / DEAD from git, PR, and tmux facts.
+#
+# Usage: scripts/track-status [graph.yaml] [--repo <path>]
+#        GRAPH=/path/to/graph.yaml scripts/track-status
+#
+# A missing tmux pane is not a re-dispatch if a draft PR exists.
+# AWAITING GATE = open/draft PR + COMMENT on this head.
+# DEAD = no session, no PR, no branch (redispatch=yes).
+# PENDING / MERGED / AWAITING LOGIN with no live work are not DEAD.
+# Live probes win; graph fields fill gaps (sample PRs, offline gh).
+#
+# Exit 0 after a table. Exit 1 on usage / parse.
+# Prints no names, emails, IPs, or home paths.
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+SCHEMA = "living-graph/v1"
+QUIET = ("", "~", "null", "none", "-")
+
+
+def die(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def usage():
+    die(
+        "usage: track-status [graph.yaml] [--repo <path>]\n"
+        "Infer DISPATCHED / AWAITING GATE / DEAD from git/PR/tmux.\n"
+        "Missing pane is not a re-dispatch if a draft PR exists."
+    )
+
+
+def load_yaml(path):
+    try:
+        fh = open(path, encoding="utf-8")
+    except OSError as exc:
+        die("track-status: cannot read %s: %s" % (path, exc))
+    try:
+        import yaml
+        data = yaml.safe_load(fh)
+    except ImportError:
+        fh.close()
+        if not shutil.which("ruby"):
+            die("track-status: need PyYAML or ruby")
+        proc = subprocess.run(
+            ["ruby", "-ryaml", "-rjson", "-e",
+             "raw=File.read(ARGV[0]); d=begin; YAML.safe_load(raw, aliases:true); rescue ArgumentError; YAML.safe_load(raw); end; puts JSON.generate(d)",
+             path],
+            capture_output=True, text=True,
+        )
+        if proc.returncode:
+            die("track-status: YAML load failed: %s" % proc.stderr.strip())
+        data = json.loads(proc.stdout)
+    except Exception as exc:
+        die("track-status: YAML parse failed: %s" % exc)
+    else:
+        fh.close()
+    if not isinstance(data, dict):
+        die("track-status: root must be a mapping")
+    return data
+
+
+def default_graph():
+    env = os.environ.get("GRAPH")
+    if env:
+        return env
+    if os.path.isfile("living-graph.yaml"):
+        return "living-graph.yaml"
+    sample = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "examples", "sample-dependency-graph.yaml",
+    )
+    return sample if os.path.isfile(sample) else None
+
+
+def run(cmd, cwd=None, env=None):
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
+    except OSError:
+        return "", 1
+    return proc.stdout.strip(), proc.returncode
+
+
+def parse_pr(pr):
+    if pr is None:
+        return None, None
+    s = str(pr).strip()
+    if s in QUIET:
+        return None, None
+    m = re.search(r"github(?:\.[^/]+)?\.com/([^/]+/[^/]+)/pull/(\d+)", s)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = re.match(r"([^#\s]+)#(\d+)$", s)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = re.match(r"#?(\d+)$", s)
+    if m:
+        return None, int(m.group(1))
+    return None, None
+
+
+def sha_match(a, b):
+    if not a or not b:
+        return False
+    a, b = str(a).lower(), str(b).lower()
+    return a == b or (min(len(a), len(b)) >= 7 and (a.startswith(b) or b.startswith(a)))
+
+
+def filled(val):
+    return isinstance(val, str) and val.strip() not in QUIET
+
+
+def probe_tmux(session):
+    # True = live pane, False = no session, "stale" = remain-on-exit
+    # with no live command, None = tmux missing.
+    if not session or session in ("gone", "dead") + QUIET:
+        return False
+    if not shutil.which("tmux"):
+        return None
+    _, rc = run(["tmux", "has-session", "-t", session])
+    if rc != 0:
+        return False
+    out, rc = run(["tmux", "list-panes", "-t", session, "-F", "#{pane_dead} #{pane_current_command}"])
+    if rc != 0 or not out:
+        return True
+    shells = ("zsh", "bash", "sh", "fish", "tmux", "login", "dash")
+    for line in out.splitlines():
+        bits = line.split(None, 1)
+        if not bits or bits[0] == "1":
+            continue
+        cmd = (bits[1] if len(bits) > 1 else "").rsplit("/", 1)[-1].lower()
+        if cmd and cmd not in shells:
+            return True
+    return "stale"
+
+
+def probe_branch(repo, branch):
+    if not branch or not shutil.which("git"):
+        return None
+    _, rc = run(["git", "show-ref", "--verify", "--quiet", "refs/heads/%s" % branch], cwd=repo)
+    if rc == 0:
+        return True
+    out, rc = run(["git", "worktree", "list", "--porcelain"], cwd=repo)
+    if rc != 0:
+        return False
+    want = "branch refs/heads/%s" % branch
+    return any(line == want for line in out.splitlines())
+
+
+def origin_repo(repo):
+    url, rc = run(["git", "-C", repo, "config", "--get", "remote.origin.url"])
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    url = url.rstrip("/")
+    parts = url.replace(":", "/").split("/")
+    if len(parts) >= 2:
+        return parts[-2] + "/" + parts[-1]
+    return parts[-1] if parts else None
+
+
+def probe_pr(repo, repo_ref, number):
+    if number is None or not shutil.which("gh"):
+        return None
+    origin = origin_repo(repo)
+    if repo_ref and "/" not in repo_ref:
+        if origin and repo_ref in (origin, origin.rsplit("/", 1)[-1]):
+            repo_ref = origin
+        else:
+            return None
+    cmd = ["gh", "pr", "view", str(number),
+           "--json", "number,isDraft,state,headRefOid,url,reviews"]
+    if repo_ref and "/" in repo_ref:
+        cmd.extend(["-R", repo_ref])
+    env = os.environ.copy()
+    env["GH_NO_COLOR"] = "1"
+    out, rc = run(cmd, cwd=repo, env=env)
+    out = re.sub(r"\x1b\[[0-9;]*m", "", out or "")
+    if rc != 0 or not out:
+        return None
+    try:
+        return json.loads(out)
+    except ValueError:
+        return None
+
+
+def comment_on_head(data, head):
+    for rev in (data or {}).get("reviews") or []:
+        if not isinstance(rev, dict) or str(rev.get("state", "")).upper() != "COMMENTED":
+            continue
+        commit = rev.get("commit") or {}
+        oid = commit.get("oid") if isinstance(commit, dict) else None
+        if oid and head and not sha_match(oid, head):
+            continue
+        return True
+    return False
+
+
+def remote_host(host):
+    h = (host or "").strip().lower()
+    return h not in ("", "local", "localhost", "this") + tuple(QUIET)
+
+
+def infer(node, repo):
+    nid = node.get("id") or "?"
+    branch = node.get("branch") or ""
+    rec_tmux = (node.get("tmux") or "").strip()
+    session = nid if rec_tmux in ("", "alive", "gone", "dead") else rec_tmux
+    pr_ref, pr_no = parse_pr(node.get("pr"))
+    graph_sha = node.get("head_sha") or ""
+    graph_comment = filled(node.get("comment_url"))
+    graph_state = node.get("state") or ""
+    remote = remote_host(node.get("host"))
+    live_tmux = None if remote else probe_tmux(session)
+    live_branch = None if remote else (probe_branch(repo, branch) if branch else None)
+    live_pr = probe_pr(repo, pr_ref, pr_no)
+    bits, source = [], "graph"
+
+    if remote:
+        bits.append("remote host; local tmux/git unknown")
+    if live_tmux is True:
+        tmux_up, source = True, "live"
+        bits.append("tmux live")
+    elif live_tmux == "stale":
+        tmux_up, source = False, "live"
+        bits.append("tmux stale (no live pane)")
+    elif live_tmux is False:
+        tmux_up = False
+        bits.append("tmux gone")
+        if rec_tmux in ("alive", "gone"):
+            source = "live"
+    else:
+        tmux_up = rec_tmux == "alive"
+        if rec_tmux in ("alive", "gone"):
+            bits.append("tmux recorded %s" % rec_tmux)
+
+    pr_open = pr_merged = False
+    head, comment = graph_sha, (graph_comment and filled(graph_sha))
+    if live_pr:
+        source = "live" if source == "live" else "mixed"
+        st = (live_pr.get("state") or "").upper()
+        pr_open = st == "OPEN"
+        pr_merged = st == "MERGED"
+        head = live_pr.get("headRefOid") or head
+        comment = comment_on_head(live_pr, head) or (graph_comment and sha_match(graph_sha, head))
+        label = "draft PR" if live_pr.get("isDraft") and pr_open else ("open PR" if pr_open else "PR")
+        bits.append("%s #%s" % (label, live_pr.get("number", pr_no)))
+        bits.append("COMMENT on this head" if comment else "no COMMENT on this head")
+    elif pr_no is not None:
+        if graph_state == "MERGED":
+            pr_merged = True
+            bits.append("PR %s#%s recorded MERGED" % (pr_ref or "repo", pr_no))
+        else:
+            pr_open = True
+            bits.append("draft PR %s#%s (recorded)" % (pr_ref or "repo", pr_no))
+        if comment:
+            bits.append("COMMENT recorded")
+        if graph_sha:
+            bits.append("head %s" % graph_sha)
+    if live_branch is True:
+        bits.append("branch exists")
+        if source == "graph":
+            source = "mixed"
+    elif live_branch is False and branch:
+        bits.append("no local branch")
+
+    stop = ("MERGED", "PENDING", "AWAITING LOGIN", "AWAITING SPLIT")
+    if pr_merged:
+        inferred, redispatch = "MERGED", "no"
+    elif pr_open and comment:
+        inferred, redispatch = "AWAITING GATE", "no"
+    elif pr_open or tmux_up or live_branch is True:
+        inferred, redispatch = "DISPATCHED", "no"
+    elif graph_state in stop:
+        inferred, redispatch = graph_state, "no"
+        bits.append("graph %s; no live work" % graph_state)
+    elif remote:
+        inferred, redispatch = "DISPATCHED", "no"
+        bits.append("remote; not DEAD without live facts")
+    else:
+        inferred, redispatch = "DEAD", "yes"
+        bits.append("no tmux, no PR, no branch")
+    return nid, inferred, redispatch, source, "; ".join(bits) or "-"
+
+
+def parse_args(argv):
+    path, repo, i = None, os.environ.get("TRACK_REPO"), 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ("-h", "--help"):
+            usage()
+        elif arg == "--repo":
+            i += 1
+            if i >= len(argv):
+                die("track-status: --repo needs a path")
+            repo = argv[i]
+        elif arg.startswith("--repo="):
+            repo = arg.split("=", 1)[1]
+        elif arg.startswith("-"):
+            die("track-status: unknown flag %s" % arg)
+        elif path is None:
+            path = arg
+        else:
+            die("track-status: unexpected argument %s" % arg)
+        i += 1
+    return path, repo or os.getcwd()
+
+
+def main(argv):
+    path, repo = parse_args(argv)
+    if path is None:
+        path = default_graph()
+    if not path:
+        usage()
+    if not os.path.isfile(path):
+        die("track-status: not a file: %s" % path)
+    if not shutil.which("git"):
+        die("track-status: git not found")
+    inside, rc = run(["git", "-C", repo, "rev-parse", "--is-inside-work-tree"])
+    if rc != 0 or inside.strip() != "true":
+        die("track-status: not a git repository: %s" % repo)
+    data = load_yaml(path)
+    if data.get("schema") != SCHEMA:
+        die("track-status: schema must be %s" % SCHEMA)
+    nodes = data.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        die("track-status: nodes must be a non-empty list")
+    rows = [("node", "inferred", "redispatch", "source", "evidence")]
+    for node in nodes:
+        if not isinstance(node, dict):
+            die("track-status: each node must be a mapping")
+        rows.append(infer(node, repo))
+    widths = [max(len(r[i]) for r in rows) for i in range(4)]
+    shown = path
+    home = os.path.expanduser("~")
+    abs_p = os.path.abspath(path)
+    if home and abs_p.startswith(home + os.sep):
+        shown = os.path.basename(path)
+    elif not os.path.isabs(path):
+        shown = path
+    else:
+        shown = os.path.basename(path)
+    print("graph=%s" % shown)
+    for rec in rows:
+        print("%-*s  %-*s  %-*s  %-*s  %s" % (
+            widths[0], rec[0], widths[1], rec[1],
+            widths[2], rec[2], widths[3], rec[3], rec[4],
+        ))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
