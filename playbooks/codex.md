@@ -93,7 +93,7 @@ Same handoff as [general.md](general.md): real caller path, product repo CI-equi
 
 ## Gate and merge
 
-Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Mark the draft ready, then emit `WAITING ON YOU: merge PR #N`. Do not merge while waiting. After the human merges, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
+Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Mark **only the next PR in merge order** ready, then emit `WAITING ON YOU: merge PR #N`. Leave later PRs draft. Do not merge while waiting. After the human merges, rebase and re-gate the next PR, then watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
 
 ## Heartbeat
 

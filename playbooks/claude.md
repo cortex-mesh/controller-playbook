@@ -83,7 +83,7 @@ Return `REVISE` with file, line, failure scenario, expected correction, and requ
 
 ## Gate and merge
 
-Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA, or that no current-head run exists. Mark the draft ready, then emit `WAITING ON YOU: merge PR #N`. Do not merge while waiting. After the human merges, live-verify staging. Production remains human-run.
+Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA, or that no current-head run exists. Mark **only the next PR in merge order** ready, then emit `WAITING ON YOU: merge PR #N`. Leave later PRs draft. Do not merge while waiting. After the human merges, rebase and re-gate the next PR, then live-verify staging. Production remains human-run.
 
 ## Heartbeat
 

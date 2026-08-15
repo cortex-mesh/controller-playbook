@@ -149,7 +149,7 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 4. Confirm COMMENT exists for **this** head.
 5. Exact-head CI, or the report that no current-head run exists.
 6. Read the verdict.
-7. After repo-gate evidence is green, mark the draft ready (`gh pr ready`) so the human can merge. Workers never `gh pr ready`. Emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting.
+7. After repo-gate evidence is green, mark **only the next PR in merge order** ready (`gh pr ready`). Leave later PRs draft. Workers never `gh pr ready`. Emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. After the human merges, rebase and re-gate the next PR before marking it ready.
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Staging is CoS-only.
 
@@ -175,7 +175,7 @@ Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put
 
 Every CoS-visible message starts with one label. Same three labels as [general.md](general.md#heartbeat): **WORKING**, **WAITING ON YOU**, **BLOCKED**. Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux.
 
-`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. Because the Bot cannot remain in a turn, **replace** that routine with a **one-shot reminder at 30-60 minutes, or the next morning**. The reminder prompt must first re-probe the PR (and status + GATE log). If it is already merged, emit `WORKING` and continue default-branch CI / staging — do not ask the human to merge again. If it is still open, the message starts WAITING ON YOU plus the exact action. Do not leave the Bot with no wake-up; that is quiet-at-GATE again. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. Because the Bot cannot remain in a turn, **replace** that routine with a **one-shot reminder at 30-60 minutes, or the next morning**. The reminder prompt must first re-probe the PR (and status + GATE log). If it is already merged, emit `WORKING` and continue default-branch CI / staging — do not ask the human to merge again. If it is still open, the message starts WAITING ON YOU plus the exact action, and schedule one next-morning reminder (still not a 10-minute drip). Do not leave the Bot with no wake-up; that is quiet-at-GATE again. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 
 ```text
 WORKING

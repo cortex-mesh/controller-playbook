@@ -56,7 +56,7 @@ See [ADR 0003](adr/0003-worktrees-and-parallel-tracks.md).
 3. The worker posts the different-family COMMENT. The CoS re-reviews high-risk diffs only (schema, auth, migration, security, data-write, or a thin pre-review).
 4. Live-verify staging. Green CI is not enough.
 5. Phase the worker with resume/continue. Do not pretend one shot is an immortal session.
-6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE), not one notice then quiet.
+6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` after `gh pr ready`, not one notice then quiet.
 
 ## Human-stop list
 

@@ -169,13 +169,13 @@ gh pr review "$PR" --comment --body-file "$VERDICT"
 4. Confirm a COMMENT review exists for **this** head.
 5. CI green on this SHA, or the report that no current-head run exists.
 6. Read the verdict. Do not merge on a grep for "no blocking."
-7. After repo-gate evidence is green, mark the draft ready so the human can merge. Workers never run this. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
+7. After repo-gate evidence is green, mark **only the next PR in merge order** ready so the human can merge. Leave later PRs draft. Workers never run this. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
 
 ```sh
 gh pr ready <PR#>
 ```
 
-Then emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. Do not go quiet. After the human GATEs, serialize any remaining merge order and watch default-branch CI.
+Then emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. Do not go quiet. After the human merges, rebase and re-gate the next PR on the new default branch (fresh COMMENT if the SHA moved), then mark that one ready. Do not expose two ready PRs at once.
 
 Escalate to a fresh CoS-run review for schema, auth, migration, security, data-write, or a thin pre-review.
 

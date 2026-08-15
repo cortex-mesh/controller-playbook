@@ -75,4 +75,4 @@ Interactive TUI (`grok --no-alt-screen` in tmux) only when someone must watch. I
 - Confirm the pane is alive or the log has started. After `grok -p` exits, read the held pane or the log — do not treat a dead command as missing output.
 - A missing pane later is not a dead track. Infer GATE from git/PR. Do not re-dispatch.
 - Do not double-dispatch this host until the track reports GATE, block, or done.
-- Heartbeat every 10 minutes from the CoS routine while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE), not one notice then quiet.
+- Heartbeat every 10 minutes from the CoS routine while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` only after `gh pr ready`; until then WORKING. Not one notice then quiet.
