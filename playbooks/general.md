@@ -203,7 +203,7 @@ Every CoS-visible message starts with one label:
 
 Do not phrase a human decision as a status ("merge as-is, or I send the worker back"). That is WAITING ON YOU.
 
-`AWAITING GATE` in the graph still means the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Quiet-at-GATE / one notice then silent is not allowed. Stop the 10-minute WORKING drip, but keep a wake-up: one reminder after about 30-60 minutes or the next morning. `AWAITING SPLIT`: `WORKING` if the CoS can write the split and re-dispatch; `WAITING ON YOU: approve a graph split` if the human must approve it.
+`AWAITING GATE` in the graph still means the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE) **after** `gh pr ready`. Until the draft is ready, the line is `WORKING`. Quiet-at-GATE / one notice then silent is not allowed. Stop the 10-minute WORKING drip, but keep a wake-up: one reminder after about 30-60 minutes or the next morning. That reminder re-probes the PR first; if it is already merged, continue post-merge work (`WORKING`). `AWAITING SPLIT`: `WORKING` if the CoS can write the split and re-dispatch; `WAITING ON YOU: approve a graph split` if the human must approve it.
 
 Implementing or CI: every 10 minutes, dual timestamps, label `WORKING` first. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. Read the worker status file and the GATE log. Do not invent state, PR, SHA, or next action from tmux or chat. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 

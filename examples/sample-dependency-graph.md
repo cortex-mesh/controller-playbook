@@ -47,7 +47,7 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Blast radius | one subsystem: berth API (`src/api/**`, `src/lib/berths.ts`) | one subsystem: operator UI (`src/ui/**`) |
 | Split | none — one outcome | none — one outcome |
 | Parallel? | yes, if the contract ADR is already merged | yes, same condition |
-| Draft PR | `example-app#12` (draft) | `example-app#13` (draft) |
+| Draft PR | `example-app#12` (ready; CoS ran `gh pr ready`) | `example-app#13` (draft) |
 | Head SHA | `abc1234` (pinned `commit_id`) | `def5678` (pinned `commit_id`) |
 | COMMENT URL | `https://github.com/example/example-app/pull/12#pullrequestreview-1` | pending worker COMMENT on this head |
 | Graph state | `AWAITING GATE` (repo gate) | `DISPATCHED` |
@@ -56,7 +56,7 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Repo gate | CI-equivalent check, mutation on conflicts, COMMENT after this-SHA CI | CI-equivalent check, COMMENT after this-SHA CI |
 | Staging gate | CoS-only after both merges; `GET /health` | CoS-only after both merges; create reservation in UI |
 | CoS may do | rebase, confirm COMMENT, `gh pr ready`, staging verify after merge | same |
-| Human only | GATE (merge PR / accept residual / unlock REVISE), production DNS, prod secrets | GATE, production DNS, prod secrets |
+| Human only | merge the ready PR / accept residual / unlock REVISE, production DNS, prod secrets | merge when ready, production DNS, prod secrets |
 
 ## Clobber rules
 

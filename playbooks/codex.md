@@ -21,8 +21,8 @@ dispatch precise task/goal
   → scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
   → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → CoS runs fresh Sol/high review
-  → REVISE or GATE
-  → serialize merge → staging → live-verify
+  → REVISE or WAITING ON YOU: merge
+  → human merges → staging → live-verify
 ```
 
 ## Dispatch
@@ -93,7 +93,7 @@ Same handoff as [general.md](general.md): real caller path, product repo CI-equi
 
 ## Gate and merge
 
-Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Serialize merges. After merge, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
+Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Mark the draft ready, then emit `WAITING ON YOU: merge PR #N`. Do not merge while waiting. After the human merges, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
 
 ## Heartbeat
 
