@@ -23,8 +23,8 @@ dispatch precise task/goal
   → worker runs scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
   → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → Claude CoS runs a fresh Opus review
-  → REVISE with concrete findings, or GATE
-  → serialize merge → staging → live-verify
+  → REVISE with concrete findings, or WAITING ON YOU: merge
+  → human merges → staging → live-verify
 ```
 
 ## Dispatch
@@ -83,8 +83,8 @@ Return `REVISE` with file, line, failure scenario, expected correction, and requ
 
 ## Gate and merge
 
-Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA, or that no current-head run exists. Serialize overlapping merges. Live-verify staging. Production remains human-run.
+Rebase onto the latest default branch. Scan files other tracks touch. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then re-run Opus and post a new COMMENT. Confirm the COMMENT covers **this** head. Confirm CI is green on this SHA, or that no current-head run exists. Mark **only the next PR in merge order** ready, then emit `WAITING ON YOU: merge PR #N`. Leave later PRs draft. Do not merge while waiting. After the human merges, rebase and re-gate the next PR, then live-verify staging. Production remains human-run.
 
 ## Heartbeat
 
-Poll at least every 10 minutes until the track is complete, blocked, or handed off. Check tmux output, git, PR head, CI, and the progress log. Same three-attempt escalation as the [general playbook](general.md).
+Poll at least every 10 minutes until the track is complete, blocked, or handed off. Check tmux output, git, PR head, CI, and the progress log. Same three-attempt escalation as the [general playbook](general.md). Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED; see [general.md](general.md#heartbeat). Do not go quiet at GATE.

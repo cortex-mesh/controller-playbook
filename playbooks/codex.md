@@ -21,8 +21,8 @@ dispatch precise task/goal
   → scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
   → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → CoS runs fresh Sol/high review
-  → REVISE or GATE
-  → serialize merge → staging → live-verify
+  → REVISE or WAITING ON YOU: merge
+  → human merges → staging → live-verify
 ```
 
 ## Dispatch
@@ -93,8 +93,8 @@ Same handoff as [general.md](general.md): real caller path, product repo CI-equi
 
 ## Gate and merge
 
-Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Serialize merges. After merge, watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
+Rebase, clobber-check. If rebase moved the SHA, wait for this-SHA CI (or record that no current-head run exists), then post a fresh COMMENT. Confirm COMMENT covers **this** head. CI green on this SHA, or the report that no current-head run exists. Mark **only the next PR in merge order** ready, then emit `WAITING ON YOU: merge PR #N`. Leave later PRs draft. Do not merge while waiting. After the human merges, rebase and re-gate the next PR, then watch default-branch CI and staging. A green PR is not proof that the default branch deployed. Live-verify the endpoint, data effect, or UI.
 
 ## Heartbeat
 
-Ten-minute cadence while tracks run. Watchdog may inspect and repeat an authorized steer. It may not redefine scope, invent gates, merge production, or retry an unresolved escalation indefinitely. Three attempts, then escalate.
+Ten-minute cadence while tracks run. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED; see [general.md](general.md#heartbeat). Do not go quiet at GATE. Watchdog may inspect and repeat an authorized steer. It may not redefine scope, invent gates, merge production, or retry an unresolved escalation indefinitely. Three attempts, then escalate.

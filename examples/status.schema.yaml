@@ -24,6 +24,10 @@ properties:
     description: Graph node id. Pointer only; the YAML graph owns the node.
   state:
     type: string
+    description: >-
+      Graph / worker stop-state, not the CoS-visible line. AWAITING GATE is the
+      repo gate; the human-visible line is WAITING ON YOU: merge PR #N (or
+      accept residual / unlock REVISE).
     enum:
       - PENDING
       - AWAITING LOGIN

@@ -46,7 +46,7 @@ CoS writes phases (graph + goal prompt) → dispatch each unblocked track
   → draft PR; this-SHA CI green; then Sol/high COMMENT, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh Sol/high COMMENT
-  → REVISE or GATE → CoS marks ready → serialize merge → CoS staging → live-verify
+  → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
 ```
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Do not name staging as the next incomplete phase.
@@ -149,13 +149,15 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 4. Confirm COMMENT exists for **this** head.
 5. Exact-head CI, or the report that no current-head run exists.
 6. Read the verdict.
-7. After GATE, the CoS marks the draft ready (`gh pr ready`) and serializes merge. Workers never `gh pr ready`.
+7. After repo-gate evidence is green, mark **only the next PR in merge order** ready (`gh pr ready`). Leave later PRs draft. Workers never `gh pr ready`. Emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. After the human merges, rebase and re-gate the next PR before marking it ready.
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Staging is CoS-only.
 
 Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
 
 If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.
+
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action, not a CoS auto-merge. Do not go quiet after one notice. Do not phrase that decision as a status.
 
 ## Escalate
 
@@ -171,13 +173,21 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
 
-Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux. `AWAITING GATE` or `AWAITING SPLIT`: one immediate notice, then quiet until the CoS issues REVISE, GATE, or a graph update and re-dispatch. Stuck or steer still fire immediately. Quiet when idle.
+Every CoS-visible message starts with one label. Same three labels as [general.md](general.md#heartbeat): **WORKING**, **WAITING ON YOU**, **BLOCKED**. Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux.
+
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. Because the Bot cannot remain in a turn, **replace** that routine with a **one-shot reminder at 30-60 minutes, or the next morning**. The reminder prompt must first re-probe the PR (and status + GATE log). If it is already merged, emit `WORKING` and continue default-branch CI / staging — do not ask the human to merge again. If it is still open, the message starts WAITING ON YOU plus the exact action, and schedule one next-morning reminder (still not a 10-minute drip). Do not leave the Bot with no wake-up; that is quiet-at-GATE again. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 
 ```text
+WORKING
 Thu Aug 13, 2026, 6:45:00 AM PT
 2026-08-13 06:45:00 PDT
 dev-1 still working track D (repo#123, SHA abc1234). CI in progress.
 Will check in again in 10 minutes.
 ```
 
-Minimum line: `<host> still working, will check in again in 10 minutes.`
+```text
+WAITING ON YOU: merge PR #123
+Track D is AWAITING GATE in the graph. COMMENT on abc1234.
+```
+
+Minimum WORKING line: `WORKING: <host> still working, will check in again in 10 minutes.`
