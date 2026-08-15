@@ -49,7 +49,7 @@ CoS writes phases (graph + goal prompt) → dispatch each unblocked track
   → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh reviewer COMMENT
-  → REVISE or GATE → CoS marks ready → serialize merge → CoS staging → live-verify
+  → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
 ```
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Production stays a human gate.
@@ -169,19 +169,19 @@ gh pr review "$PR" --comment --body-file "$VERDICT"
 4. Confirm a COMMENT review exists for **this** head.
 5. CI green on this SHA, or the report that no current-head run exists.
 6. Read the verdict. Do not merge on a grep for "no blocking."
-7. After GATE, mark the draft ready. Workers never run this. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
+7. After repo-gate evidence is green, mark the draft ready so the human can merge. Workers never run this. GitHub will not merge a draft. Do not run this before COMMENT and exact-head CI are green.
 
 ```sh
 gh pr ready <PR#>
 ```
 
-Then serialize merge.
+Then emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. Do not go quiet. After the human GATEs, serialize any remaining merge order and watch default-branch CI.
 
 Escalate to a fresh CoS-run review for schema, auth, migration, security, data-write, or a thin pre-review.
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Green pre-merge CI is not a staging check. Staging is CoS-only.
 
-`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice. Do not phrase that decision as a status ("merge as-is, or I send the worker back"). If the CoS is still running gate-preflight, rebase, or COMMENT confirm, the line is `WORKING`.
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action, not a CoS auto-merge. Do not phrase that decision as a status ("merge as-is, or I send the worker back"). If the CoS is still running gate-preflight, rebase, or COMMENT confirm, the line is `WORKING`.
 
 ## Escalate
 
@@ -203,7 +203,7 @@ Every CoS-visible message starts with one label:
 
 Do not phrase a human decision as a status ("merge as-is, or I send the worker back"). That is WAITING ON YOU.
 
-`AWAITING GATE` in the graph still means the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Quiet-at-GATE / one notice then silent is not allowed. `AWAITING SPLIT`: `WORKING` if the CoS can write the split and re-dispatch; `WAITING ON YOU: approve a graph split` if the human must approve it.
+`AWAITING GATE` in the graph still means the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Quiet-at-GATE / one notice then silent is not allowed. Stop the 10-minute WORKING drip, but keep a wake-up: one reminder after about 30-60 minutes or the next morning. `AWAITING SPLIT`: `WORKING` if the CoS can write the split and re-dispatch; `WAITING ON YOU: approve a graph split` if the human must approve it.
 
 Implementing or CI: every 10 minutes, dual timestamps, label `WORKING` first. Re-run `scripts/fleet-preflight` on that cadence (live resolve; do not cache IPs). Re-run `scripts/track-status` on the same cadence so a vanished pane is not mistaken for a dead track. Read the worker status file and the GATE log. Do not invent state, PR, SHA, or next action from tmux or chat. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 

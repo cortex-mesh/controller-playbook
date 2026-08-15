@@ -23,7 +23,7 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 6. **Draft PR, wait for this-SHA CI, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
 7. **Write the status file.** Run `scripts/gate-preflight`. Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they pass.
 8. **CoS repo gate.** Read status + GATE log + graph. Run `scripts/gate-preflight`. Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
-9. **REVISE or GATE.** After GATE the CoS marks the draft ready and serializes overlapping merges. Watch default-branch CI after merge. Same blocker: evidence, one REVISE, then stop and escalate.
+9. **REVISE or GATE.** After repo-gate evidence is green, mark the draft ready and emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. Watch default-branch CI after the human merges. Same blocker: evidence, one REVISE, then stop and escalate.
 10. **Staging gate (CoS-only).** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
 11. **Human production.** Workers never dispatch production.
 

@@ -81,7 +81,8 @@ sequenceDiagram
     Worker->>GH: new head
     Worker->>Rev: review the new head
   else gate
-    CoS->>GH: mark ready and serialize merge
+    CoS->>Human: WAITING ON YOU: merge PR
+    Human->>GH: GATE / merge
     CoS->>Stage: deploy merged SHA
     CoS->>CoS: live-verify staging
     CoS->>Human: production remains a human gate
@@ -110,7 +111,8 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 | Gate class | repository |
 | Repo gate | CI-equivalent check, COMMENT after this-SHA CI, CI on this SHA |
 | Staging gate | CoS-only after merge; live GET `/health` |
-| CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, merge, staging verify |
+| CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, staging verify after the human merges |
+| Human at GATE | WAITING ON YOU: merge PR #N (or accept residual / unlock REVISE) |
 | Status file | worker-written; CoS reads ([schema](../examples/status.schema.yaml)) |
 | GATE log | append-only DISPATCH / REVISE 1–3 / SPLIT / GATE / HUMAN |
 
@@ -119,7 +121,7 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 The CoS cannot sit in one turn forever. A 10-minute routine (or a tmux watchdog that only repeats an authorized step) keeps the loop moving:
 
 - Heartbeat while implementing or in CI (dual timestamps), including "still working." Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED.
-- `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice.
+- `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute WORKING drip; keep a one-shot reminder. Do not go quiet after one notice.
 - Inspect tmux, git, PR head, and CI. Read the worker [status file](../examples/status.schema.yaml) and the [GATE log](../examples/sample-gate-log.tsv). Do not invent state from tmux. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
 - Take the next already-authorized repo-safe step. Do not become the implementer when dispatch fails.
 - Do not double-dispatch a progressing track.

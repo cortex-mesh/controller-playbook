@@ -16,7 +16,7 @@ A single immortal CLI session fails in predictable ways:
 - Nobody is awake when a chat turn ends, so a stuck track stays stuck.
 - Merge, staging, and production get treated as one blob called "done."
 
-A Chief of Staff (CoS) owns the goal and the gates. Workers implement one phase at a time in isolated git worktrees. A **different model family** reviews the pull request as a GitHub `COMMENT`, never as Approve. The CoS serializes merges and live-verifies staging. Production stays human-gated.
+A Chief of Staff (CoS) owns the goal and the gates. Workers implement one phase at a time in isolated git worktrees. A **different model family** reviews the pull request as a GitHub `COMMENT`, never as Approve. Repository merge at GATE is a human action (`WAITING ON YOU`). The CoS live-verifies staging. Production stays human-gated.
 
 This method is used in production at CORTEX Mesh. The public tree describes the process, not the shop topology.
 
@@ -44,7 +44,7 @@ flowchart TD
 2. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
 3. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
 4. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
-5. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then merges one PR at a time.
+5. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
 6. Staging is live-verified. Production is a human step.
 
 ## One-machine path

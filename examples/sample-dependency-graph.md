@@ -55,8 +55,8 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 | Gate class | repository | repository |
 | Repo gate | CI-equivalent check, mutation on conflicts, COMMENT after this-SHA CI | CI-equivalent check, COMMENT after this-SHA CI |
 | Staging gate | CoS-only after both merges; `GET /health` | CoS-only after both merges; create reservation in UI |
-| CoS may do | rebase, confirm COMMENT, `gh pr ready`, merge, staging verify | same |
-| Human only | production DNS, prod secrets | production DNS, prod secrets |
+| CoS may do | rebase, confirm COMMENT, `gh pr ready`, staging verify after merge | same |
+| Human only | GATE (merge PR / accept residual / unlock REVISE), production DNS, prod secrets | GATE, production DNS, prod secrets |
 
 ## Clobber rules
 
@@ -73,7 +73,7 @@ Living snapshot after dispatch. Update these fields in place as the wave moves.
 
 ## Merge order
 
-1. Track A if it owns the HTTP contract. CoS marks the draft ready after GATE.
+1. Track A if it owns the HTTP contract. CoS marks the draft ready, then WAITING ON YOU: merge.
 2. Track B. Same. Workers never `gh pr ready`.
 3. Watch default-branch CI.
 4. CoS deploys staging at the merged SHA. Do not dispatch staging as a worker phase.

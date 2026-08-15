@@ -46,7 +46,7 @@ CoS writes phases (graph + goal prompt) → dispatch each unblocked track
   → draft PR; this-SHA CI green; then Sol/high COMMENT, AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
   → high-risk: fresh Sol/high COMMENT
-  → REVISE or GATE → CoS marks ready → serialize merge → CoS staging → live-verify
+  → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
 ```
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Do not name staging as the next incomplete phase.
@@ -149,7 +149,7 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 4. Confirm COMMENT exists for **this** head.
 5. Exact-head CI, or the report that no current-head run exists.
 6. Read the verdict.
-7. After GATE, the CoS marks the draft ready (`gh pr ready`) and serializes merge. Workers never `gh pr ready`.
+7. After repo-gate evidence is green, mark the draft ready (`gh pr ready`) so the human can merge. Workers never `gh pr ready`. Emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting.
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Staging is CoS-only.
 
@@ -157,7 +157,7 @@ Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, securi
 
 If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.
 
-`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not go quiet after one notice. Do not phrase that decision as a status.
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action, not a CoS auto-merge. Do not go quiet after one notice. Do not phrase that decision as a status.
 
 ## Escalate
 
@@ -175,7 +175,7 @@ Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put
 
 Every CoS-visible message starts with one label. Same three labels as [general.md](general.md#heartbeat): **WORKING**, **WAITING ON YOU**, **BLOCKED**. Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux.
 
-`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. If still blocked on the human after about 30-60 minutes (or the next morning), one reminder that still starts WAITING ON YOU, not a 10-minute drip. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
+`AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. Because the Bot cannot remain in a turn, **replace** that routine with a **one-shot reminder at 30-60 minutes, or the next morning** — prompt still starts WAITING ON YOU plus the exact action. Do not leave the Bot with no wake-up; that is quiet-at-GATE again. Cancel the reminder when the human acts. `AWAITING SPLIT`: WORKING if the CoS can write the split and re-dispatch; WAITING ON YOU: approve a graph split if the human must approve it. Stuck or steer still fire immediately. Quiet when idle (no live tracks).
 
 ```text
 WORKING

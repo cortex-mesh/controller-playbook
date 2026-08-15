@@ -104,8 +104,8 @@ CI — not a looser local subset). Push only if green. Mutation-test
 new tests. Run `scripts/pr-size-check` before the draft. Over cap →
 `AWAITING SPLIT`, do not open a megadiff. File count is a smell, not a fail.
 Else draft PR. Reviewer COMMENT on the pinned head after this-SHA CI is
-green. `AWAITING GATE`. Workers never `gh pr ready`. CoS marks ready after
-GATE and serializes merge. Staging is CoS-only.
+green. `AWAITING GATE`. Workers never `gh pr ready`. CoS marks ready and
+emits WAITING ON YOU: merge. Staging is CoS-only.
 
 ## Verification (every worker phase)
 

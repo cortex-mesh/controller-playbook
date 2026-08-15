@@ -12,7 +12,7 @@ Controller chats end. Headless workers continue. Without an external wake-up, no
 Every CoS-visible message starts with one label:
 
 - **WORKING** — CoS/worker still going. No action from the human. While any track is **implementing or in CI**, emit a **dual-timestamped heartbeat at least every 10 minutes**, including "still working" / "will check in again in 10 minutes."
-- **WAITING ON YOU** — first line, then the exact action (merge PR #N, authorize device login, approve a graph split). `AWAITING GATE` in the graph is still the repo gate; the human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute "still working" heartbeat. Do not go silent. If still blocked on the human after about 30-60 minutes (or the next morning), one reminder that still starts WAITING ON YOU, not a 10-minute drip.
+- **WAITING ON YOU** — first line, then the exact action (merge PR #N, authorize device login, approve a graph split). `AWAITING GATE` in the graph is still the repo gate; the human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action. Stop the 10-minute "still working" heartbeat, but keep a wake-up: one reminder after about 30-60 minutes or the next morning (Grok Bot: install a one-shot routine; the Bot cannot sit in a turn). The reminder still starts WAITING ON YOU, not a 10-minute drip.
 - **BLOCKED** — not the human (implementer logged out, CI, SSH). Name what is blocked and whether the CoS is unblocking it.
 
 Do not phrase a human decision as a status ("merge as-is, or I send the worker back"). That is WAITING ON YOU. Quiet-at-GATE is not allowed.
@@ -34,5 +34,5 @@ Every WORKING implementing/CI heartbeat opens with the label, then local time an
 ## Consequences
 
 - Grok Bot CoS uses a 10-minute routine every calendar day, including weekends, while any track is implementing or in CI. Claude-style controllers poll on the same cadence.
-- `WORKING` plus "still working on `dev-1`" is a valid heartbeat. Quiet-at-GATE is not. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` to the human.
+- `WORKING` plus "still working on `dev-1`" is a valid heartbeat. Quiet-at-GATE is not. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` to the human. A Bot with no implementing/CI tracks still needs the one-shot reminder while WAITING ON YOU.
 - Operators see whether a ping is a status, a request for them, or a stall the CoS is unblocking.
