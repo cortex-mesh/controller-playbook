@@ -13,6 +13,8 @@ How a Chief of Staff, a worker pool, and a different-family reviewer ship a prod
 
 Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are steps. One CoS per standing product goal. If two controllers must share a goal, use a shared thread, not a specialist swarm.
 
+**Focused controllers beat a catch-all.** A CoS owns one goal and its gates; workers implement one phase. Do not mint a new controller when an existing lane already owns the work. A dispatcher, coder, reviewer, or merger is a step inside one CoS loop, not a separate controller. If two products need orchestration, coordinate via goal prompts or a shared thread — do not build a meta-controller swarm.
+
 ## Loop
 
 1. **Lock decisions.** Number them (`D1`, `D2`, …). Workers do not re-litigate them.
@@ -57,6 +59,12 @@ See [ADR 0003](adr/0003-worktrees-and-parallel-tracks.md).
 4. Live-verify staging. Green CI is not enough.
 5. Phase the worker with resume/continue. Do not pretend one shot is an immortal session.
 6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` after `gh pr ready`, not one notice then quiet.
+
+## Security boundary
+
+**Separate bots or controllers are not a security boundary.** They share one computer, one set of sessions, and one set of logins. The far end (GitHub, cloud provider, SaaS) sees the human operator's identity. Approvals in the goal prompt prevent actions; they do not reverse them. A CoS approval gate is not an undo button for production. Production must remain a human-only gate because production actions are irreversible.
+
+Workers may run in-scope repository work without asking (CI-equivalent checks, draft PRs, COMMENT reviews). Everything on the human-stop list below is out of scope until a human unlocks it in the goal prompt.
 
 ## Human-stop list
 
