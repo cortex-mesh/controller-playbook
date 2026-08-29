@@ -57,6 +57,32 @@ In the assigned worktree, run the product repo CI-equivalent check (`make check`
 
 Before opening a draft PR, run `scripts/pr-size-check`. Over cap (exit 2 / `AWAITING SPLIT`): do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method. COMMENT starts only after current-head CI is green on this SHA.
 
+## Method rules
+
+### Skills then routines, never the reverse
+
+Chain existing skills with a human yes-gate before any build or publish step. Recorded click-paths are drafts until judgment rules are written into code or a skill. Do not convert a one-off manual trace into a scheduled routine without extracting the decision rules first. A skill documents *when* to take an action, not just *how*.
+
+### Show the tape
+
+Every claim that would change a decision needs a receipt: a screenshot, a permalink, or the source. If you cannot show how a number was obtained (from CI logs, a live API response, or a file), omit the number. Do not estimate to fill a slot. When a worker or watcher reports a blocker, capture evidence: command, SHA, log excerpt, and failure mode. One REVISE with file, failure, and required proof. Without the receipt, the report is not actionable.
+
+### Watchers may return silence
+
+"Nothing today" is a valid watcher report. Never manufacture an update to fill a scheduled slot. If there are no unblocked tracks, no new CI results, and no GATE transitions since the last heartbeat, the heartbeat is `WORKING: no unblocked tracks; quiet until the next dispatch` or (when idle) no message. Fast lane for signals that decay in an hour (CI red, SSH timeout); slow lane for daily-class announcements (nightly build results). Do not mix them in one watcher. A 10-minute heartbeat while implementing or in CI is working; a no-news drip every 10 minutes when idle is noise.
+
+### Interrupt the human only for approval, missing data, or out of scope
+
+Otherwise finish the authorized work and show the tape. Keep the existing WORKING / WAITING ON YOU / BLOCKED labels (see [Heartbeat](#heartbeat)). WAITING ON YOU must name the exact action: "merge PR #N," "authorize device login," or "approve a graph split." Do not phrase a decision as a status ("merge as-is, or I send the worker back") — that is still WAITING ON YOU. Repository merge at GATE stays human. Production stays human. Everything else on the human-stop list ([design.md](../docs/design.md)) is out of scope until the goal prompt unlocks it.
+
+### Working with internal tools
+
+Point workers at the ugly internal tool with no API when that is the real work. Do not invent a mock or a stub when the real path is a web UI, a CLI without JSON output, or a vendor dashboard. Learn the tool out loud first (one click-path with screenshots or terminal capture), then execute one end-to-end task with receipts. If the tool requires login, SSO, or 2FA, hand the screen back to the human for the auth step — never paste secrets or auth tokens into chat. After login, a worker can continue with the real tool. Record the steps taken and the outcomes observed, not guesses.
+
+### Cursor IDE is operator homework
+
+The Cursor IDE (context engine, plan mode, multi-repo support) is operator training for using the IDE day-to-day. It is not a new playbook roster. Repo implementation still goes to isolated worker worktrees via the playbook loop (see [ADR 0003](../docs/adr/0003-worktrees-and-parallel-tracks.md)). The IDE is a valid worker host when logged in; treat it as one row in the worker pool. Do not document IDE-specific product tutorials in this playbook.
+
 ## Dispatch
 
 First phase:
