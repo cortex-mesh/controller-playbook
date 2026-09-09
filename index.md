@@ -24,7 +24,11 @@ This method is used in production at CORTEX Mesh. The public tree describes the 
 
 ```mermaid
 flowchart TD
-  Goal[Goal prompt] --> Graph[Dependency graph]
+  Intent[Intent + originator review] --> PO[Product-owner sign-off]
+  PO --> Spec[Spec.md]
+  Spec --> Plan[Plan.md]
+  Plan --> Goal[Goal prompt]
+  Goal --> Graph[Dependency graph]
   Graph --> Dispatch[CoS dispatches unblocked tracks]
   Dispatch --> Work[Worker implements one phase]
   Work --> Draft[Draft pull request]
@@ -40,12 +44,13 @@ flowchart TD
   Beat -.-> Await
 ```
 
-1. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
-2. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
-3. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
-4. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
-5. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
-6. Staging is live-verified. Production is a human step.
+1. Optionally advance **pre-dispatch artifacts** (for new products/features): `intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`. See [`skills/pre-dispatch-artifacts`](skills/pre-dispatch-artifacts/SKILL.md).
+2. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
+3. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
+4. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
+5. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
+6. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
+7. Staging is live-verified. Production is a human step.
 
 ## One-machine path
 
@@ -62,7 +67,9 @@ Still use a dedicated git worktree per track. Still split implementer and review
 - [Design](docs/design.md) — roles, gates, anti-churn, human-stop list
 - [Architecture](docs/architecture.md) — architecture and one-track sequence
 - [Playbooks](playbooks/README.md) — choose by controller identity
+- [Pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) — optional intent → spec → plan before goal prompt
 - [Goal-prompt skill](skills/goal-prompt/SKILL.md) — author the standing instruction
+- [Sample Harbor intent](examples/sample-intent.md), [spec](examples/sample-spec.md), [plan](examples/sample-plan.md) — fictional pre-dispatch artifacts
 - [Sample Harbor goal](examples/sample-goal-prompt.md) — fictional product, placeholder workers
 - [Meta-repo](docs/meta-repo.md) — map, not product
 - [Method ADRs](docs/adr/README.md)
