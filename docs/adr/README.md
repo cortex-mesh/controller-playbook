@@ -15,5 +15,6 @@ These ADRs record the **controller method**, not a product architecture. Product
 | [0005](0005-goal-prompts.md) | Goal prompts are the standing instruction | Accepted |
 | [0006](0006-meta-repo.md) | A meta-repo is a map, not a product | Accepted |
 | [0007](0007-watchdog-heartbeat.md) | A 10-minute heartbeat watches running tracks | Accepted |
+| [0008](0008-pre-dispatch-artifacts.md) | Pre-dispatch artifacts precede the goal prompt | Accepted |
 
-Status is accepted as of 2026-08-13.
+Status is accepted as of 2026-09-09.

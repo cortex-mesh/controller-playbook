@@ -17,6 +17,8 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 
 ## Loop
 
+**Pre-dispatch** (optional for new products/features): `intent.md` → originator review → product-owner sign-off → `spec.md` → `plan.md`. See [ADR 0008](adr/0008-pre-dispatch-artifacts.md) and [`skills/pre-dispatch-artifacts`](../skills/pre-dispatch-artifacts/SKILL.md). Small, already-scoped work can skip this and start at step 1.
+
 1. **Lock decisions.** Number them (`D1`, `D2`, …). Workers do not re-litigate them.
 2. **Write the goal long.** Short goals stall. Phase 0 is docs and ADRs. Later phases are code.
 3. **Graph before a wave.** Each track names repo, assigned host (after failover), tmux or gone, log path, branch, base SHA, draft PR, head SHA, COMMENT URL, inputs, overlaps, gate class, CoS-may-do, and login/preflight.

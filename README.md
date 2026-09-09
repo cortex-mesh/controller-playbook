@@ -24,7 +24,11 @@ This method is used in production at CORTEX Mesh. The public tree describes the 
 
 ```mermaid
 flowchart TD
-  Goal[Goal prompt] --> Graph[Dependency graph]
+  Intent[Intent + originator review] --> PO[Product-owner sign-off]
+  PO --> Spec[Spec.md]
+  Spec --> Plan[Plan.md]
+  Plan --> Goal[Goal prompt]
+  Goal --> Graph[Dependency graph]
   Graph --> Dispatch[CoS dispatches unblocked tracks]
   Dispatch --> Work[Worker implements one phase]
   Work --> Draft[Draft pull request]
@@ -40,12 +44,13 @@ flowchart TD
   Beat -.-> Await
 ```
 
-1. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
-2. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
-3. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
-4. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
-5. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
-6. Staging is live-verified. Production is a human step.
+1. Optionally advance **pre-dispatch artifacts** (for new products/features): `intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`. See [`skills/pre-dispatch-artifacts`](skills/pre-dispatch-artifacts/SKILL.md).
+2. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
+3. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
+4. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
+5. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
+6. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
+7. Staging is live-verified. Production is a human step.
 
 ## One-machine path
 
@@ -62,9 +67,10 @@ Still use a dedicated git worktree per track. Still split implementer and review
 1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, and the human-stop list.
 2. Read [docs/architecture.md](docs/architecture.md) for the architecture and one-track sequence.
 3. Choose a controller identity in [playbooks/README.md](playbooks/README.md).
-4. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path. Those skills require the product repo CI-equivalent check before push (see [playbooks/general.md](playbooks/general.md#cicd)) and `scripts/pr-size-check` before a draft PR: over cap is `AWAITING SPLIT`, not GATE.
-5. Author a goal from [examples/sample-goal-prompt.md](examples/sample-goal-prompt.md). Swap Harbor for your product. Replace `dev-1` / `dev-2` with your hosts.
-6. Keep a [meta-repo](docs/meta-repo.md) as a map, not as the product. Never publish a `.private/` directory.
+4. (Optional) For new products or features: advance [pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) (`intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`) before writing a goal prompt. See [examples](examples/sample-intent.md).
+5. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path. Those skills require the product repo CI-equivalent check before push (see [playbooks/general.md](playbooks/general.md#cicd)) and `scripts/pr-size-check` before a draft PR: over cap is `AWAITING SPLIT`, not GATE.
+6. Author a goal from [examples/sample-goal-prompt.md](examples/sample-goal-prompt.md). Swap Harbor for your product. Replace `dev-1` / `dev-2` with your hosts.
+7. Keep a [meta-repo](docs/meta-repo.md) as a map, not as the product. Never publish a `.private/` directory.
 
 ## Playbooks
 

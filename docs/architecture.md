@@ -2,6 +2,8 @@
 
 The playbook is a control loop around ordinary git repositories. Nothing here replaces your product architecture.
 
+**Before the loop:** For new products or features, optionally advance pre-dispatch artifacts (`intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`) before the CoS writes a goal prompt. See [ADR 0008](adr/0008-pre-dispatch-artifacts.md) and [`skills/pre-dispatch-artifacts`](../skills/pre-dispatch-artifacts/SKILL.md). Small, already-scoped work starts directly at the goal prompt.
+
 ## System
 
 ```mermaid
