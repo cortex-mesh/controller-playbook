@@ -66,7 +66,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 - [Design](docs/design.md) — roles, gates, anti-churn, human-stop list
 - [Architecture](docs/architecture.md) — architecture and one-track sequence
-- [Playbooks](playbooks/README.md) — choose by controller identity
+- [Playbooks](playbooks/README.md) — choose a controller setup (Grok Bot, Claude Code, or Codex)
 - [Pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) — optional intent → spec → plan before goal prompt
 - [Goal-prompt skill](skills/goal-prompt/SKILL.md) — author the standing instruction
 - [Sample Harbor intent](examples/sample-intent.md), [spec](examples/sample-spec.md), [plan](examples/sample-plan.md) — fictional pre-dispatch artifacts

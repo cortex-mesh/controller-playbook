@@ -66,7 +66,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, and the human-stop list.
 2. Read [docs/architecture.md](docs/architecture.md) for the architecture and one-track sequence.
-3. Choose a controller identity in [playbooks/README.md](playbooks/README.md).
+3. Choose a controller setup in [playbooks/README.md](playbooks/README.md) (Grok Bot, Claude Code, or Codex).
 4. (Optional) For new products or features: advance [pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) (`intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`) before writing a goal prompt. See [examples](examples/sample-intent.md).
 5. Copy [skills/goal-prompt/SKILL.md](skills/goal-prompt/SKILL.md) (and the Grok variants if that is your controller) into your agent skills path. Those skills require the product repo CI-equivalent check before push (see [playbooks/general.md](playbooks/general.md#cicd)) and `scripts/pr-size-check` before a draft PR: over cap is `AWAITING SPLIT`, not GATE.
 6. Author a goal from [examples/sample-goal-prompt.md](examples/sample-goal-prompt.md). Swap Harbor for your product. Replace `dev-1` / `dev-2` with your hosts.
@@ -74,12 +74,12 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 ## Playbooks
 
-| Controller | Implementer | Reviewer | Doc |
+| Controller setup | Implementer | Preferred fleet reviewer | Doc |
 | --- | --- | --- | --- |
-| Any | Internal session or fleet CLI | Different, more capable model on a fleet node (different family preferred) | [playbooks/general.md](playbooks/general.md) |
-| Claude | `<coder-model>` (often Codex) | `<reviewer-model>` on a fleet node | [playbooks/claude.md](playbooks/claude.md) |
-| Codex | Codex CLI `<coder-model>` | `<reviewer-model>` on a fleet node, different family preferred | [playbooks/codex.md](playbooks/codex.md) |
-| Grok Bot | Grok CLI `<coder-model>` or a recorded internal session | `<reviewer-model>` on a fleet node, different family preferred | [playbooks/grok.md](playbooks/grok.md) |
+| Shared rules | Internal session or fleet CLI | Different, at-least-as-capable model on a fleet node (different family preferred) | [playbooks/general.md](playbooks/general.md) |
+| Grok Bot as controller | Grok CLI `<coder-model>`, or a recorded internal session (`<model not pinnable>`) | Codex or Claude Code, strongest available qualifying tier | [playbooks/grok.md](playbooks/grok.md) |
+| Claude Code as controller | Often a Codex worker; or a recorded Claude Code session | Different family from the coder | [playbooks/claude.md](playbooks/claude.md) |
+| Codex as controller | Codex CLI `<coder-model>`, or a recorded Codex session | Claude Code or Grok, strongest available qualifying tier | [playbooks/codex.md](playbooks/codex.md) |
 
 ## Docs
 

@@ -1,6 +1,6 @@
 # General controller playbook
 
-Controller-agnostic rules. Variant playbooks add model names and launch flags; they do not relax these rules.
+Shared rules for every controller setup. They do not change by which controller is the Chief of Staff. Choose a setup in [README.md](README.md): [Grok Bot](grok.md), [Claude Code](claude.md), or [Codex](codex.md). Setup pages do not relax these rules.
 
 ## Roles
 
@@ -86,6 +86,10 @@ Otherwise finish the authorized work and show the tape. Keep the existing WORKIN
 ### Working with internal tools
 
 Point workers at the ugly internal tool with no API when that is the real work. Do not invent a mock or a stub when the real path is a web UI, a CLI without JSON output, or a vendor dashboard. Learn the tool out loud first (one click-path with screenshots or terminal capture), then execute one end-to-end task with receipts. If the tool requires login, SSO, or 2FA, hand the screen back to the human for the auth step — never paste secrets or auth tokens into chat. After login, a worker can continue with the real tool. Record the steps taken and the outcomes observed, not guesses.
+
+### Cursor IDE is operator homework
+
+The Cursor IDE (context engine, plan mode, multi-repo support) is operator training for using the IDE day-to-day. It is not a controller setup and not a new playbook roster. Repo implementation still goes to isolated worker worktrees via the playbook loop (see [ADR 0003](../docs/adr/0003-worktrees-and-parallel-tracks.md)). The IDE is a valid worker host when logged in; treat it as one row in the worker pool. Do not document IDE-specific product tutorials in this playbook.
 
 ## Dispatch checklist
 
@@ -178,6 +182,8 @@ The table below is an **example as of 2026-11**, not a standing pin. Replace it 
 | Grok | pin the current Grok coding model; do not float `grok` |
 
 Pick the reviewer from a different family when one is available and at least as capable. Same family is last-resort only, with the reason on the PR. See [ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md).
+
+If a controller's internal session cannot pin or name the coding model, the PR records `Coded in: internal session` and `Coded by: controller internal session / <controller> / <model not pinnable>`. Do not invent a version name. The fleet reviewer is the strongest available qualifying tier (different family preferred).
 
 ## Review
 
