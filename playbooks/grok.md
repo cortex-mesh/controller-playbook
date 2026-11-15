@@ -1,27 +1,110 @@
-# Grok controller playbook
+# Grok Bot as controller
 
-Use this when a **Grok Bot** is the Chief of Staff. Implementation is Grok CLI on a fleet node, or the Bot's own internal session when that locus is an explicit, recorded choice ([ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)). Review always runs on a fleet node, on a different and at-least-as-capable model, preferably a different family (commonly a Codex or Claude reviewer), posted as a GitHub `COMMENT`.
+Use this setup when a **Grok Bot** is the Chief of Staff. Shared rules are in [general.md](general.md). This page is the Grok Bot setup: how it dispatches workers, when it may code in its own session, which fleet reviewers pair with it, and its limits.
 
-Grok CLI is not `codex exec` and not Claude remote control. `grok -p` is one shot. Chain phases with `--continue` / `--resume`.
+Review always runs on a fleet node, on a different and at-least-as-capable model, preferably a different family, posted as a GitHub `COMMENT`. Never Approve.
 
-## Model contract
+## Dispatching workers
 
-| Role | Default |
-| --- | --- |
-| Implement | Grok CLI `<coder-model>`. Pin the current coding model; do not float `grok`. |
-| Authoritative review | `<reviewer-model>` on a fleet node, different family preferred (commonly Codex or Claude) |
-| High-risk re-review | Fresh fleet review with a qualifying model, CoS-run |
-
-See the example model table as of 2026-11 in [general.md](general.md#model-pins). If you do not use Codex, substitute a reviewer CLI that is a different and at-least-as-capable model, preferably a different family. A fresh Grok session of the same model that wrote the change is not an acceptable reviewer. Same-family review is last-resort only, with the reason on the PR.
-
-## Worker pool
-
-Fill this table. Examples only:
+Fill the worker-pool table. Examples only:
 
 | Host | SSH | Fit | Max parallel Grok tracks |
 | --- | --- | --- | --- |
 | `dev-1` | `user@host` | General coding | 1 |
 | `ci-box` | `user@host` | Heavy jobs; do not starve CI | 1 |
+
+Before every dispatch and on the 10-minute heartbeat, run `scripts/fleet-preflight` against the **local** pool file (copy [examples/worker-pool.example.tsv](../examples/worker-pool.example.tsv)). Resolve the pool live. Do not remember VPN or SSH IPs. `login-needed` is AWAITING LOGIN. One SSH timeout is not "no hosts." Leftover tmux panes without a live worker process are not busy. See [fleet-preflight](../skills/fleet-preflight/SKILL.md).
+
+Login (implementer models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If the chosen path is fleet dispatch and no logged-in host fits, escalate dispatch. Do not silently switch the locus to the controller session.
+
+Create a dedicated git worktree. Name the next incomplete **worker** phase. Do not dispatch staging. Launch snippets for each worker CLI are in [Worker CLIs](#worker-clis).
+
+```text
+CoS writes phases (graph + goal prompt) → dispatch each unblocked track
+  → implement this phase's one outcome (fleet worker CLI, or a recorded internal session)
+  → CI-equivalent check in the worktree; red = do not push
+  → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
+  → draft PR; this-SHA CI green; then fleet COMMENT (different family preferred), AWAITING GATE
+  → CoS confirms review on this head, clobber-checks, exact-head CI
+  → high-risk: fresh fleet COMMENT
+  → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
+```
+
+Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Do not name staging as the next incomplete phase.
+
+Implement only this phase's one outcome. In the assigned worktree, run the product repo CI-equivalent check; push only if it is green. Run `scripts/pr-size-check` before a draft. COMMENT starts only after current-head CI is green on this SHA. See [CI/CD](general.md#cicd).
+
+Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-track](../skills/grok-launch-track/SKILL.md), [fleet-preflight](../skills/fleet-preflight/SKILL.md).
+
+## Internal-session coding
+
+A Grok Bot may implement in its own internal session only as an explicit, recorded choice ([ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)). Isolation still comes from a dedicated worktree, a draft PR, and the repository gate. The session that writes the change does not review it, does not run `gh pr ready`, and does not merge.
+
+The coding model inside a Grok Bot session cannot be pinned or named. The PR records:
+
+```
+Coded in: internal session
+Coded by: controller internal session / Grok Bot / <model not pinnable>
+```
+
+Do not invent a Grok version name to fill the model slot. The fleet reviewer is the strongest available qualifying tier (see [Fleet reviewer pairings](#fleet-reviewer-pairings)).
+
+## Fleet reviewer pairings
+
+Prefer a **different model family** from the coder, on a fleet node, at least as capable and preferably more capable:
+
+| Coder | Preferred fleet reviewer |
+| --- | --- |
+| Grok Bot internal session, or a Grok CLI worker | Codex or Claude Code, strongest available qualifying tier |
+| A Codex worker dispatched by this controller | Claude Code, or a Grok reviewer if that is the strongest available different-family option |
+| A Claude Code worker dispatched by this controller | Codex or Grok, strongest available qualifying tier |
+
+A fresh Grok session of the same model that wrote the change is not an acceptable reviewer. Same-family review is last-resort only, must be more capable, and the PR states why no other family was available. See the example model table as of 2026-11 in [general.md](general.md#model-pins).
+
+Never review in the coder's session. Tee the verdict outside the repo. Pin `commit_id` to the exact head. Abort if the live head moved. Never interpolate the verdict into `--body`. Re-review the final commit after any fix.
+
+Resolve `<default>` from this repo; do not assume `main`. The snippet below is the Codex-reviewer form. For a Claude Code reviewer, use the review command in [claude.md](claude.md#fleet-reviewer-pairings).
+
+```sh
+DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
+  || echo origin/<default>)
+REPO=$(basename "$(git rev-parse --show-toplevel)")
+PR=<PR#>
+PINNED=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+REVDIR="$HOME/.grok/reviews"
+mkdir -p "$REVDIR"
+VERDICT="$REVDIR/${REPO}-pr${PR}-${PINNED}.md"
+set -o pipefail
+codex review --base "$DEFAULT" \
+  -c 'model="<reviewer-model>"' \
+  -c 'model_reasoning_effort="high"' \
+  | tee "$VERDICT"
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "abort: codex review exit $status"
+  exit "$status"
+fi
+LIVE=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+if [ "$LIVE" != "$PINNED" ]; then
+  echo "abort: live head $LIVE != pinned $PINNED"
+  exit 1
+fi
+gh pr review "$PR" --comment --body-file "$VERDICT"
+```
+
+High-risk diffs (schema, auth, migration, security, data-write) or a thin pre-review get a fresh fleet COMMENT, still with a qualifying model. Record command, SHA, output path, and exit status.
+
+## Limits
+
+- The Grok Bot in-session model cannot be pinned or named. Record `<model not pinnable>` and pick the strongest available fleet reviewer tier.
+- The Bot cannot sit in a turn. Heartbeat is a scheduled routine, not a long-lived chat (see [Heartbeat](#heartbeat)).
+- A silent switch from a failed fleet dispatch into the Bot session is forbidden.
+- Grok CLI is not `codex exec` and not Claude Code. `grok -p` is one shot. Chain phases with `--continue` / `--resume`.
+- Shared method rules, coverage, the quality-gate checklist, and the human-only waiver are in [general.md](general.md). The Cursor IDE is not a controller setup; see [general.md](general.md#cursor-ide-is-operator-homework).
+
+## Worker CLIs
+
+### Worker: Grok CLI
 
 `grok` often lives at `$HOME/.grok/bin/grok` and is **missing from non-interactive SSH PATH**. Always call the absolute path.
 
@@ -30,64 +113,11 @@ GROK="$HOME/.grok/bin/grok"
 $GROK --version
 ```
 
-`grok --worktree` does not create a worktree in headless `-p` mode. You create the git worktree.
-
-Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If the chosen path is fleet dispatch and no logged-in host fits, escalate dispatch. Do not silently switch the locus to the CoS session. A CoS session that implements must be an explicit, recorded choice.
-
-Before every dispatch and on the 10-minute heartbeat, run `scripts/fleet-preflight` against the **local** pool file (copy [examples/worker-pool.example.tsv](../examples/worker-pool.example.tsv)). Resolve the pool live. Do not remember Tailscale or SSH IPs. `login-needed` is AWAITING LOGIN. One SSH timeout is not "no hosts." Leftover tmux panes without a live `grok` process are not busy. See [fleet-preflight](../skills/fleet-preflight/SKILL.md).
-
-## Loop
-
-```text
-CoS writes phases (graph + goal prompt) → dispatch each unblocked track
-  → <coder-model> implements this phase's one outcome (fleet Grok CLI, or a recorded internal session)
-  → CI-equivalent check in the worktree; red = do not push
-  → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
-  → draft PR; this-SHA CI green; then fleet COMMENT (different, more capable model), AWAITING GATE
-  → CoS confirms review on this head, clobber-checks, exact-head CI
-  → high-risk: fresh fleet COMMENT
-  → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
-```
-
-Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Do not name staging as the next incomplete phase.
-
-Implement only this phase's one outcome. Do not smuggle a second outcome into the same PR. If the phase is already two outcomes, report `AWAITING SPLIT` with a proposed split.
-
-In the assigned worktree, run the product repo CI-equivalent check (`make check`, or the exact commands from that repo CI). Push only if it is green. Fail = do not push, do not open the draft. Do not use a looser local subset. If the repo has no `make check`, or CI does not run on this SHA, say so in `AWAITING GATE`. See [CI/CD](general.md#cicd).
-
-Before opening a draft PR, run `scripts/pr-size-check`. Over cap (exit 2 / `AWAITING SPLIT`): do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split (one track per subsystem / one outcome). Do not COMMENT-review a megadiff. There is no "justify the megadiff." File count alone does not fail GATE. Size is the backstop; grouping is the method. COMMENT starts only after current-head CI is green on this SHA.
-
-## Method rules
-
-### Skills then routines, never the reverse
-
-Chain existing skills with a human yes-gate before any build or publish step. Recorded click-paths are drafts until judgment rules are written into code or a skill. Do not convert a one-off manual trace into a scheduled routine without extracting the decision rules first. A skill documents *when* to take an action, not just *how*.
-
-### Show the tape
-
-Every claim that would change a decision needs a receipt: a screenshot, a permalink, or the source. If you cannot show how a number was obtained (from CI logs, a live API response, or a file), omit the number. Do not estimate to fill a slot. When a worker or watcher reports a blocker, capture evidence: command, SHA, log excerpt, and failure mode. One REVISE with file, failure, and required proof. Without the receipt, the report is not actionable.
-
-### Watchers may return silence
-
-"Nothing today" is a valid watcher report. Never manufacture an update to fill a scheduled slot. If there are no unblocked tracks, no new CI results, and no GATE transitions since the last heartbeat, the heartbeat is `WORKING: no unblocked tracks; quiet until the next dispatch` or (when idle) no message. Fast lane for signals that decay in an hour (CI red, SSH timeout); slow lane for daily-class announcements (nightly build results). Do not mix them in one watcher. A 10-minute heartbeat while implementing or in CI is working; a no-news drip every 10 minutes when idle is noise.
-
-### Interrupt the human only for approval, missing data, or out of scope
-
-Otherwise finish the authorized work and show the tape. Keep the existing WORKING / WAITING ON YOU / BLOCKED labels (see [Heartbeat](#heartbeat)). WAITING ON YOU must name the exact action: "merge PR #N," "authorize device login," or "approve a graph split." Do not phrase a decision as a status ("merge as-is, or I send the worker back") — that is still WAITING ON YOU. Repository merge at GATE stays human. Production stays human. Everything else on the human-stop list ([design.md](../docs/design.md)) is out of scope until the goal prompt unlocks it.
-
-### Working with internal tools
-
-Point workers at the ugly internal tool with no API when that is the real work. Do not invent a mock or a stub when the real path is a web UI, a CLI without JSON output, or a vendor dashboard. Learn the tool out loud first (one click-path with screenshots or terminal capture), then execute one end-to-end task with receipts. If the tool requires login, SSO, or 2FA, hand the screen back to the human for the auth step — never paste secrets or auth tokens into chat. After login, a worker can continue with the real tool. Record the steps taken and the outcomes observed, not guesses.
-
-### Cursor IDE is operator homework
-
-The Cursor IDE (context engine, plan mode, multi-repo support) is operator training for using the IDE day-to-day. It is not a new playbook roster. Repo implementation still goes to isolated worker worktrees via the playbook loop (see [ADR 0003](../docs/adr/0003-worktrees-and-parallel-tracks.md)). The IDE is a valid worker host when logged in; treat it as one row in the worker pool. Do not document IDE-specific product tutorials in this playbook.
-
-## Dispatch
-
-First phase:
+`grok --worktree` does not create a worktree in headless `-p` mode. You create the git worktree. Pin `<coder-model>` on a fleet Grok CLI worker; do not float `grok`. (This pin applies to the CLI worker, not to a Grok Bot internal session.)
 
 Default tmux `remain-on-exit` is off. Set it on and tee to `$HOME/.grok/logs/<track>.log` so a finished `grok -p` does not erase `AWAITING GATE` or failures. Capture from the held pane or that log.
+
+First phase:
 
 ```sh
 GROK="$HOME/.grok/bin/grok"
@@ -120,50 +150,21 @@ tmux send-keys -t <track> \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
 
-If tmux is gone, infer `AWAITING GATE` from the worker status file plus git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not invent state from tmux. Do not re-dispatch. Keep `remain-on-exit`, the durable log, and later-phase pane respawn. Respawn a later-phase pane only to continue an incomplete worker phase.
-
-Heartbeat and GATE read [status](../examples/status.schema.yaml) + `scripts/track-status` + the append-only [GATE log](../examples/sample-gate-log.tsv). Run `scripts/gate-preflight` before `AWAITING GATE`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they exit 0. See [Runtime facts](general.md#runtime-facts).
+If tmux is gone, infer `AWAITING GATE` from the worker status file plus git/PR: draft PR + COMMENT on this head + SHA. A missing pane is not a dead track. Do not invent state from tmux. Do not re-dispatch. Prefer `--continue` or `--resume <uuid>` over a new conversation. Interactive TUI (`--no-alt-screen` in tmux) is for live steer only.
 
 If the controller cannot paste into tmux, write the instruction to a file and send a short Read of that file.
 
-Prefer `--continue` or `--resume <uuid>` over a new conversation. Interactive TUI (`--no-alt-screen` in tmux) is for live steer only.
-
 Autonomy for in-scope writes: `--always-approve --permission-mode bypassPermissions`. Still no production, no new paid secrets, no destructive data. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 
-Skills: [grok-goal-prompt](../skills/grok-goal-prompt/SKILL.md), [grok-launch-track](../skills/grok-launch-track/SKILL.md), [fleet-preflight](../skills/fleet-preflight/SKILL.md).
+Heartbeat and GATE read [status](../examples/status.schema.yaml) + `scripts/track-status` + the append-only [GATE log](../examples/sample-gate-log.tsv). Run `scripts/gate-preflight` before `AWAITING GATE`. See [Runtime facts](general.md#runtime-facts).
 
-## Review
+### Worker: Codex
 
-Resolve `<default>` from this repo; do not assume `main`. Tee to `$HOME/.grok/reviews/<repo>-pr<n>-<sha>.md`. Check exit status. Pin `commit_id` to the exact head. Abort if the live head is not that SHA. Never interpolate the verdict into `--body`.
+A Grok Bot controller may dispatch a Codex worker on a fleet node when that CLI is the better fit. Use the Codex launch commands in [codex.md](codex.md#worker-codex) (steerable `codex` or unattended `codex exec`), with a pinned `<coder-model>` and a dedicated worktree. Review then prefers Claude Code on a fleet node (different family).
 
-```sh
-DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
-  || echo origin/<default>)
-REPO=$(basename "$(git rev-parse --show-toplevel)")
-PR=<PR#>
-PINNED=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
-REVDIR="$HOME/.grok/reviews"
-mkdir -p "$REVDIR"
-VERDICT="$REVDIR/${REPO}-pr${PR}-${PINNED}.md"
-set -o pipefail
-codex review --base "$DEFAULT" \
-  -c 'model="<reviewer-model>"' \
-  -c 'model_reasoning_effort="high"' \
-  | tee "$VERDICT"
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "abort: codex review exit $status"
-  exit "$status"
-fi
-LIVE=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
-if [ "$LIVE" != "$PINNED" ]; then
-  echo "abort: live head $LIVE != pinned $PINNED"
-  exit 1
-fi
-gh pr review "$PR" --comment --body-file "$VERDICT"
-```
+### Worker: Claude Code
 
-Never Approve. Never review the PR in the same session that wrote it. A fresh session of the same model is not an acceptable reviewer. Review always runs on a fleet node.
+A Grok Bot controller may dispatch a Claude Code worker on a fleet node when that CLI is the better fit. Use the Claude Code worker notes in [claude.md](claude.md#worker-claude-code), with a pinned `<coder-model>`. Review then prefers Codex on a fleet node (different family).
 
 ## CoS gate
 
@@ -179,9 +180,7 @@ Agent-side fleet COMMENT is already the independent-model check. Default CoS gat
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Staging is CoS-only.
 
-Escalate to a fresh CoS-run fleet COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
-
-If the chosen path is fleet dispatch and dispatch fails, escalate dispatch. Do not silently switch the locus to the CoS session.
+If the chosen path is fleet dispatch and dispatch fails, escalate dispatch. Do not silently switch the locus to the controller session.
 
 `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action, not a CoS auto-merge. Do not go quiet after one notice. Do not phrase that decision as a status.
 
@@ -197,7 +196,7 @@ Independent tracks continue. If a same-class P1 was already fixed once in this S
 
 ## Heartbeat
 
-Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the CoS Bot every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
+Grok Bot cannot sit in a turn. While any track is **implementing or in CI**, put a **10-minute routine on the controller every calendar day, including weekends.** Prompt is this heartbeat plus "take the next repo-safe step; do not double-dispatch a progressing track." Re-run `scripts/fleet-preflight` on that cadence; do not cache host IPs. A weekday-only schedule misses weekend tracks; do not use one.
 
 Every CoS-visible message starts with one label. Same three labels as [general.md](general.md#heartbeat): **WORKING**, **WAITING ON YOU**, **BLOCKED**. Read the worker status file and the GATE log. Re-run `scripts/track-status`. Do not invent state from tmux.
 
