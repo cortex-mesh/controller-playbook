@@ -222,6 +222,8 @@ Docs: <files updated or why none>
 ADR: <link or not needed because ...>
 ```
 
+The parenthetical is shorthand. The rule is a different model that is at least as capable, preferably more capable. A same-family fallback must be more capable, and only when no other family is available on the fleet.
+
 If coverage does not apply, write `Coverage: N/A` and the reason. If a same-family reviewer was used, say why no other family was available on the fleet.
 
 ## CoS gate
