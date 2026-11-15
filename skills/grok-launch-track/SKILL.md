@@ -14,7 +14,7 @@ Do not dispatch staging or last integration. Those phases are CoS-only. Workers 
 1. Read the goal's worker-pool table.
 2. On each candidate: tmux list, `$HOME/.grok/bin/grok --version`, login check (`grok` models + `gh`), reviewer CLI present, repo on the default branch and not behind origin, working tree clean.
 3. Login is a dispatch input, not a wave blocker. Skip a logged-out or busy host. Re-pick the least-loaded logged-in host that fits and write the new owner into the graph.
-4. If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+4. If no logged-in host fits, escalate dispatch. Do not silently switch the locus to the CoS session. A CoS session that implements must be an explicit, recorded choice, not a failed-dispatch fallback.
 5. Record host, worktree path, tmux session, and grok session id in the graph.
 
 ## Worktree
@@ -39,8 +39,8 @@ tmux new-session -d -s <track>
 tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
-     -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
+     -m <coder-model> --cwd <worktree> --verbatim -p \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. Over cap or a second outcome: report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split; do not open a megadiff. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL, and the quality-gate checklist (playbooks/general.md#awaiting-gate-report). If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -59,7 +59,7 @@ else
   tmux set-option -t <track> remain-on-exit on
 fi
 tmux send-keys -t <track> \
-  "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
+  "$GROK --no-auto-update --always-approve -m <coder-model> --cwd <worktree> \
      --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only. Phase DoD is the product check commands; AWAITING GATE is illegal until they exit 0. Run that check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff. File count alone does not fail GATE. COMMENT only after this-SHA CI is green. Write the status file. Run scripts/gate-preflight.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```

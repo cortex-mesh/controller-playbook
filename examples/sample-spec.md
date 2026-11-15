@@ -101,7 +101,7 @@ Auth: operator UI and reservation endpoints require login (mechanism TBD in Phas
 - **D6.** Conflict detection: reject with a message. No auto-suggest alternative slips.
 - **D7.** Public board: today only (no historical view, no future view beyond today).
 - **D8.** Spend cap: $200 compute for staging. Production is a later human gate.
-- **D9.** Review: different-family COMMENT. Never Approve from an agent.
+- **D9.** Review: fleet COMMENT by a different and at-least-as-capable model (preferably more capable; different family preferred). Never Approve from an agent.
 - **D10.** Public docs use placeholders only (`dev-1`, `user@host`). No personal names, IPs, or fleet inventory.
 
 ---

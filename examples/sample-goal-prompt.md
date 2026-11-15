@@ -1,7 +1,7 @@
 # Goal Prompt — Harbor
 
 _2026-08-13 · Owner: human operator · CoS: **Harbor CoS** (Grok Bot) ·
-Workers: Grok CLI grok-4.6 on the **worker pool** (CoS assigns host at dispatch)_
+Workers: Grok CLI `<coder-model>` on the **worker pool**, or a recorded CoS internal session (locus recorded on the PR)_
 
 Standing instruction: read this file, find the next incomplete **worker**
 phase (skip staging / last integration — CoS-only), execute it end-to-end,
@@ -13,8 +13,10 @@ Run `scripts/pr-size-check` before opening a draft PR. Over cap →
 CI is green on this SHA, then COMMENT. Phase DoD is those check commands.
 `AWAITING GATE` is illegal until they exit 0. Write the worker status
 file. Run `scripts/gate-preflight`. Report AWAITING GATE with branch,
-PR, head SHA, and COMMENT review URL. Never `gh pr ready`. If the product
-repo has no `make check`, or CI does not run on this SHA, say so in that report.
+PR, head SHA, COMMENT review URL, and the quality-gate checklist. Never
+`gh pr ready`. If the product repo has no `make check`, or CI does not run
+on this SHA, say so in that report. If coverage does not apply, record
+`Coverage: N/A` and the reason.
 
 This is a **fictional** product used to show the shape of a goal. Swap Harbor
 for your app. Replace `dev-1` / `dev-2` with your hosts. Do not copy a private
@@ -31,7 +33,7 @@ one staging deploy. Production is a later human gate.
 - D1. Product name: Harbor (fictional). Repo: `example-app`.
 - D2. Stack: TypeScript web app + HTTP API. Exact framework is an accepted ADR in Phase 0.
 - D3. Tenancy: single operator org in v1. No marketplace, no multi-vendor billing.
-- D4. Review: `gpt-5.6-sol` / high COMMENT. Never Approve from an agent. A fresh Grok session is not an acceptable reviewer.
+- D4. Review: fleet COMMENT by `<reviewer-model>` (different and at-least-as-capable; different family preferred). Never Approve from an agent. A fresh session of the same model that wrote the change is not an acceptable reviewer. Same-family review only when no other family is on the fleet, with the reason on the PR.
 - D5. Production, paid DNS, and real customer data are out of scope for workers. DNS is the registrar or dashboard. An in-repo `CNAME` file is not DNS. `wrangler dns` does not exist.
 - D6. Public docs use placeholders only (`dev-1`, `user@host`).
 
@@ -90,11 +92,11 @@ spend.
 
 ## Model policy
 
-- `grok-4.6` writes code and ADRs.
-- `gpt-5.6-sol` / high reviews via `codex review`.
+- `<coder-model>` (Grok CLI, current coding model; do not float `grok`) writes code and ADRs. Coding may run on a fleet node or in a recorded CoS session.
+- `<reviewer-model>` reviews on a fleet node. Prefer a different family (see the example table as of 2026-11 in the general playbook).
 - `gh pr review --comment` on this head. Never Approve.
-- Never review the PR in the same Grok session that wrote it. A fresh Grok
-  session is not an acceptable reviewer.
+- Never review the PR in the same session that wrote it. A fresh session of
+  the same model is not an acceptable reviewer.
 
 ## Workflow (per PR)
 

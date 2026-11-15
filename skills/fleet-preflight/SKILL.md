@@ -39,6 +39,6 @@ The committed [example](../../examples/worker-pool.example.tsv) is placeholders 
 - Never cache host IPs in memory, in the graph, or in a note "for next time." The pool file holds names. The script resolves this run only.
 - Never skip the rest of the pool after a timeout. Finish the table.
 - Never classify `login-needed` as down. AWAITING LOGIN is a skip-and-re-pick, not an empty pool.
-- If the script exits 2, read `login-needed (AWAITING LOGIN):` vs `down:` vs `busy:`. Escalate dispatch only when no logged-in free host fits. The CoS does not become the implementer.
+- If the script exits 2, read `login-needed (AWAITING LOGIN):` vs `down:` vs `busy:`. Escalate dispatch only when the chosen path is fleet dispatch and no logged-in free host fits. Do not silently switch the locus to the CoS session ([ADR 0009](../../docs/adr/0009-coding-locus-and-review-gate.md)).
 - Leftover panes are not occupancy. Live PIDs are.
 - Do not paste real IPs, emails, or private host tables into PRs, heartbeats, or the public tree.

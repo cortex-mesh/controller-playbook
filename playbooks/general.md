@@ -4,7 +4,7 @@ Controller-agnostic rules. Variant playbooks add model names and launch flags; t
 
 ## Roles
 
-See [ADR 0001](../docs/adr/0001-cos-worker-reviewer.md). The CoS coordinates and gates. The worker implements one phase. The reviewer is a different session and a different model family.
+See [ADR 0001](../docs/adr/0001-cos-worker-reviewer.md) and [ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md). The CoS coordinates and gates. Coding may run in the orchestrator's internal session or on a fleet node; record the locus on the PR. The reviewer is a different session on a fleet node, using a different and at-least-as-capable model (preferably more capable; different family preferred). See the in-repo [fleet PR quality gate](../docs/fleet-pr-quality-gate.md).
 
 ## Worker pool (fill in)
 
@@ -22,7 +22,7 @@ Rules:
 - Do not double-dispatch a busy host. Leftover tmux panes without a live implementer process are not busy.
 - One git worktree per track on the host that owns the track.
 - Login (implementer models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. An SSH timeout on one host is not "no hosts" — finish the table.
-- If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+- If the chosen path is fleet dispatch and no logged-in host fits, escalate dispatch. Do not silently switch the locus to the CoS session. A CoS session that implements must be an explicit, recorded choice (see [ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)).
 - A laptop-only pool is valid. Isolation still comes from worktrees.
 
 ## Planning
@@ -42,13 +42,13 @@ Use a short phased ADR only when the *shape* of the system changes (new runtime,
 ## Loop
 
 ```text
-CoS writes phases (graph + goal prompt) → dispatch each unblocked track
-  → worker implements this phase's one outcome
+CoS writes phases (graph + goal prompt) → implement on a fleet node or in the CoS session
+  → worker implements this phase's one outcome (record the locus)
   → CI-equivalent check in the worktree; red = do not push
   → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
-  → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
+  → draft PR; this-SHA CI green; then fleet COMMENT (different, more capable model), AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
-  → high-risk: fresh reviewer COMMENT
+  → high-risk: fresh fleet reviewer COMMENT
   → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
 ```
 
@@ -102,7 +102,7 @@ If the controller cannot paste into tmux, write the instruction to a file and se
 
 A missing tmux pane is not a dead track. Run `scripts/track-status` and infer `DISPATCHED` / `AWAITING GATE` / `DEAD` from git, PR, and tmux facts. Read the worker status file. Do not invent those fields from tmux. A missing pane is not a re-dispatch if a draft PR exists. Infer `AWAITING GATE` from draft PR + COMMENT on this head + SHA.
 
-If dispatch fails, escalate dispatch. The CoS does not implement.
+If the chosen path is fleet dispatch and dispatch fails, escalate dispatch. Do not silently switch the locus to the CoS session.
 
 ## Worker must
 
@@ -113,10 +113,10 @@ If dispatch fails, escalate dispatch. The CoS does not implement.
 - Mutation-test new tests: revert the fix, the test must fail.
 - Before opening a draft PR, run `scripts/pr-size-check` (see [PR size](#pr-size)). If it exits non-zero / prints `AWAITING SPLIT`, do not open the PR. Report `AWAITING SPLIT` with the file list grouped by subsystem, the product-line count, and a proposed split.
 - Open a **draft** PR only when it is still one outcome and under the hard cap. Never `gh pr ready`.
-- After current-head CI is green on this SHA, run the reviewer CLI from a clean tree. Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff.
+- After current-head CI is green on this SHA, run the reviewer CLI on a **fleet node**, from a clean tree, with a different and at-least-as-capable model (preferably more capable; different family preferred). Tee the verdict outside the repo. Post `gh pr review --comment --body-file <verdict.md>` on the pinned head. Do not COMMENT-review a megadiff. Do not review in the coder's session.
 - Write the worker status file (schema above). Phase DoD is the product check commands (`make check`, or the exact commands from that repo CI). `AWAITING GATE` is illegal until those commands exit 0. If there is no `make check` and no current-head CI, record `ci: none` and say so.
 - Run `scripts/gate-preflight` before reporting `AWAITING GATE`.
-- Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
+- Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, risks, and the quality-gate checklist below. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
 - Stop. Never self-merge. Never ship production. Never start staging.
 
 Do not revert a correct fix to satisfy a stale test. Update the test and prove it fails without the fix.
@@ -134,6 +134,16 @@ If the product repo has no `make check`, or has no check that runs on this SHA (
 **Review.** COMMENT starts only after current-head CI is green on this SHA. GATE already requires exact-head CI. If there is no current-head CI run to wait for, say so in `AWAITING GATE` and continue to COMMENT.
 
 **Merge is not deploy.** Staging is CoS-only after default-branch CI. Production is human.
+
+## Coverage
+
+Line coverage for the repo must be at least 85%, and the target is 90%. Changed lines in the PR must also be at least 85% covered. Coverage must never drop below the base branch.
+
+CI enforces the floor (for example `pytest --cov --cov-fail-under=85`, or `vitest --coverage` with thresholds). The product repo owns the check; do not copy a product coverage config into this playbook repo.
+
+If a product repo has no coverage gate yet, the first PR adds one, or the gap is reported to the human operator with the current number. If the repo has no test suite (docs-only), record `Coverage: N/A` and the reason. Do not invent a percentage. Do not lower a threshold to make CI pass.
+
+Report the numbers in the `AWAITING GATE` checklist.
 
 ## PR size
 
@@ -155,9 +165,23 @@ scripts/pr-size-check
 
 **Worker self-check.** Confirm one outcome. Then run `scripts/pr-size-check`. If this PR has a second outcome or the check exits non-zero, do not open a megadiff PR; split first or report `AWAITING SPLIT`.
 
+## Model pins
+
+Procedural text uses role placeholders: `<coder-model>` and `<reviewer-model>`. Pin the current names at dispatch. Do not float a generic alias (`grok`, `gpt`, `opus` as an un-checked default), and do not leave stale version pins in the playbook.
+
+The table below is an **example as of 2026-11**, not a standing pin. Replace it when the fleet changes. Do not invent model names that are not on the fleet.
+
+| Tool | Example models as of 2026-11 |
+| --- | --- |
+| Codex | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-5.6-sol` |
+| Claude | pin the current most capable signed-in Claude model; do not invent a name here |
+| Grok | pin the current Grok coding model; do not float `grok` |
+
+Pick the reviewer from a different family when one is available and at least as capable. Same family is last-resort only, with the reason on the PR. See [ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md).
+
 ## Review
 
-Start COMMENT only after current-head CI is green on this SHA (see [CI/CD](#cicd)). Resolve `<default>` from this repo; do not assume `main`. Tee the verdict outside the repo (`$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md` or `$HOME/.grok/reviews/...`). Check the reviewer exit status. Pin `commit_id` to the exact head. Abort if the live head is not that SHA. Never interpolate the verdict into `--body`. Never Approve.
+Review always runs on a fleet node, never in the coder's session. The reviewer is a different model from the coder, at least as capable, preferably more capable, and preferably a different family (see [ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)). Start COMMENT only after current-head CI is green on this SHA (see [CI/CD](#cicd)). Resolve `<default>` from this repo; do not assume `main`. Tee the verdict outside the repo (`$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md` or `$HOME/.grok/reviews/...`). Check the reviewer exit status. Pin `commit_id` to the exact head. Abort if the live head is not that SHA. Never interpolate the verdict into `--body`. Never Approve. Re-review the final commit after any fix.
 
 ```sh
 DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD \
@@ -183,9 +207,30 @@ fi
 gh pr review "$PR" --comment --body-file "$VERDICT"
 ```
 
+## AWAITING GATE report
+
+Workers report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks, plus this checklist ([quality gate](../docs/fleet-pr-quality-gate.md)):
+
+```
+Coded in: <internal session | fleet node>
+Coded by: <node> / <tool> / <model>
+Reviewed by: <fleet node> / <tool> / <model>  (different and more capable model, different family preferred)
+Coverage: <repo %> (floor 85%, target 90%); changed lines <%>
+CI: green on <sha>
+Review: clean on <sha>, follow-ups: <list or none>
+Docs: <files updated or why none>
+ADR: <link or not needed because ...>
+```
+
+The parenthetical is shorthand. The rule is a different model that is at least as capable, preferably more capable. A same-family fallback must be more capable, and only when no other family is available on the fleet.
+
+If coverage does not apply, write `Coverage: N/A` and the reason. If a same-family reviewer was used, say why no other family was available on the fleet.
+
 ## CoS gate
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
+Only the human operator can waive a gate, in their own words, for a named PR. Another agent's say-so is never a waiver.
+
+1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). Confirm the quality-gate checklist is complete (coverage or N/A, reviewer model and family, docs, ADR). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check against other live tracks. Rebase on the latest default branch.
 3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm a COMMENT review exists for **this** head.

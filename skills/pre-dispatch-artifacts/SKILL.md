@@ -27,7 +27,7 @@ Skip this chain for small, already-scoped work where the goal prompt is the natu
 | `spec.md` | Agent after PO sign-off | **Product-owner sign-off** | Write plan |
 | `plan.md` | Agent after spec locked | None (feeds goal prompt) | CoS authors goal prompt per [goal-prompt](../goal-prompt/SKILL.md) |
 
-After `plan.md` is complete, the **Chief of Staff** writes a goal prompt (per [`goal-prompt`](../goal-prompt/SKILL.md)), draws the dependency graph, dispatches workers, implements, runs different-family COMMENT review, gates, and human merge — the same loop as always.
+After `plan.md` is complete, the **Chief of Staff** writes a goal prompt (per [`goal-prompt`](../goal-prompt/SKILL.md)), draws the dependency graph, implements (fleet node or recorded CoS session), runs fleet COMMENT review (different, more capable model; different family preferred), gates, and human merge — the same loop as always.
 
 ## 1. Intent (`intent.md`)
 
@@ -107,7 +107,7 @@ The plan feeds the **goal prompt**. The CoS still authors a goal per [`goal-prom
 
 1. Dependency graph before a parallel wave
 2. Dispatch to workers
-3. Implement, draft PR, different-family COMMENT review
+3. Implement (fleet node or recorded CoS session), draft PR, fleet COMMENT review
 4. GATE, human merge, staging verify, production (human)
 
 The plan is not a substitute for the goal prompt, graph, or gates. It is the durable input the goal consumes.
@@ -120,7 +120,7 @@ The pre-dispatch chain is a **prefix** to the existing loop. Nothing changes aft
 2. **Then** the CoS writes a goal prompt (per [`goal-prompt`](../goal-prompt/SKILL.md))
 3. **Then** dependency graph, dispatch, implement, COMMENT review, GATE, human merge, staging verify, production (the same loop as before)
 
-The CoS is still the orchestrator. Workers still implement phases. Different-family reviewers still post COMMENT. Humans still merge and gate production.
+The CoS is still the orchestrator. Workers still implement phases (fleet node or recorded CoS session). Fleet reviewers still post COMMENT with a different, more capable model (different family preferred). Humans still merge and gate production.
 
 ## Hard rules
 

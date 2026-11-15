@@ -83,7 +83,7 @@ These are hints for the CoS to refine into exact commands in the goal prompt. Wo
 - Phases (copied from this plan, expanded with exact DoD commands)
 - Worker pool table (hosts, fit, max parallel tracks)
 - Autonomy (in-scope work, human-stop list)
-- Model policy (writer CLI, reviewer family)
+- Model policy (writer CLI or recorded CoS session; fleet reviewer, different family preferred)
 - Workflow (worktree, CI-equivalent check, `scripts/pr-size-check`, draft PR, COMMENT, AWAITING GATE)
 - Verification (per phase)
 - Definition of done (exact commands from this plan's hints)
