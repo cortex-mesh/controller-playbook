@@ -1,18 +1,18 @@
 # Grok controller playbook
 
-Use this when a **Grok Bot** is the Chief of Staff and **Grok CLI** implements. Review is **not** Grok: default `gpt-5.6-sol` / high via `codex review`, posted as a GitHub `COMMENT`.
+Use this when a **Grok Bot** is the Chief of Staff. Implementation is Grok CLI on a fleet node, or the Bot's own internal session when that locus is an explicit, recorded choice ([ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)). Review always runs on a fleet node, on a different and at-least-as-capable model, preferably a different family (commonly a Codex or Claude reviewer), posted as a GitHub `COMMENT`.
 
-Grok CLI is not `codex exec` and not Claude remote control. `grok -p` is one shot. Chain phases with `--continue` / `--resume`. The Bot does not implement on its cloud computer.
+Grok CLI is not `codex exec` and not Claude remote control. `grok -p` is one shot. Chain phases with `--continue` / `--resume`.
 
 ## Model contract
 
 | Role | Default |
 | --- | --- |
-| Implement | `grok-4.6` via Grok CLI. Pin the version; do not float `grok`. |
-| Pre-PR review | `gpt-5.6-sol` / high via `codex review` |
-| High-risk re-review | Fresh sol/high, CoS-run |
+| Implement | Grok CLI `<coder-model>`. Pin the current coding model; do not float `grok`. |
+| Authoritative review | `<reviewer-model>` on a fleet node, different family preferred (commonly Codex or Claude) |
+| High-risk re-review | Fresh fleet review with a qualifying model, CoS-run |
 
-If you do not use Codex, substitute a reviewer CLI in a **different model family**. A fresh Grok session is not an acceptable reviewer.
+See the example model table as of 2026-11 in [general.md](general.md#model-pins). If you do not use Codex, substitute a reviewer CLI that is a different and at-least-as-capable model, preferably a different family. A fresh Grok session of the same model that wrote the change is not an acceptable reviewer. Same-family review is last-resort only, with the reason on the PR.
 
 ## Worker pool
 
@@ -32,7 +32,7 @@ $GROK --version
 
 `grok --worktree` does not create a worktree in headless `-p` mode. You create the git worktree.
 
-Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If no logged-in host fits, escalate dispatch. The CoS does not become the implementer.
+Login (`grok` models + `gh`) is a per-host dispatch input. A logged-out host is AWAITING LOGIN, not down, and does not block the wave. Re-pick the least-loaded logged-in host and write the new owner into the graph. If the chosen path is fleet dispatch and no logged-in host fits, escalate dispatch. Do not silently switch the locus to the CoS session. A CoS session that implements must be an explicit, recorded choice.
 
 Before every dispatch and on the 10-minute heartbeat, run `scripts/fleet-preflight` against the **local** pool file (copy [examples/worker-pool.example.tsv](../examples/worker-pool.example.tsv)). Resolve the pool live. Do not remember Tailscale or SSH IPs. `login-needed` is AWAITING LOGIN. One SSH timeout is not "no hosts." Leftover tmux panes without a live `grok` process are not busy. See [fleet-preflight](../skills/fleet-preflight/SKILL.md).
 
@@ -40,12 +40,12 @@ Before every dispatch and on the 10-minute heartbeat, run `scripts/fleet-preflig
 
 ```text
 CoS writes phases (graph + goal prompt) → dispatch each unblocked track
-  → grok-4.6 implements this phase's one outcome (headless -p, then --continue)
+  → <coder-model> implements this phase's one outcome (fleet Grok CLI, or a recorded internal session)
   → CI-equivalent check in the worktree; red = do not push
   → second outcome or over size cap: AWAITING SPLIT (CoS updates graph, re-dispatch)
-  → draft PR; this-SHA CI green; then Sol/high COMMENT, AWAITING GATE
+  → draft PR; this-SHA CI green; then fleet COMMENT (different, more capable model), AWAITING GATE
   → CoS confirms review on this head, clobber-checks, exact-head CI
-  → high-risk: fresh Sol/high COMMENT
+  → high-risk: fresh fleet COMMENT
   → REVISE or WAITING ON YOU: merge → human GATE → CoS staging → live-verify
 ```
 
@@ -97,8 +97,8 @@ tmux new-session -d -s <track>
 tmux set-option -t <track> remain-on-exit on
 tmux send-keys -t <track> \
   "$GROK --no-auto-update --always-approve --permission-mode bypassPermissions \
-     -m grok-4.6 --cwd <worktree> --verbatim -p \
-     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL. If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
+     -m <coder-model> --cwd <worktree> --verbatim -p \
+     'Read <absolute-goal-prompt> and execute the next incomplete worker phase end-to-end. Skip staging and last integration; those are CoS-only. One outcome only — do not smuggle a second outcome into the same PR. Phase DoD is the product check commands (make check, or the exact commands from that repo CI), not vibes. AWAITING GATE is illegal until those commands exit 0. In the assigned worktree, run that check. Push only if it is green; fail = do not push, do not open the draft. Do not use a looser local subset. Before opening a draft PR, run scripts/pr-size-check. If this phase is two outcomes or the check exits non-zero, do not open the PR; report AWAITING SPLIT with the file list grouped by subsystem, the product-line count, and a proposed split. File count alone does not fail GATE. Otherwise open a draft PR, wait until CI is green on this SHA, then run the reviewer CLI and post gh pr review --comment. Write the worker status file (state, PR, SHA, product lines, review round, next action). Run scripts/gate-preflight. Never gh pr ready. Report AWAITING GATE with branch, PR, SHA, COMMENT URL, and the quality-gate checklist (playbooks/general.md#awaiting-gate-report). If the product repo has no make check, or CI does not run on this SHA, say so in that report.' \
      2>&1 | tee \"$LOG\"" Enter
 ```
 
@@ -115,7 +115,7 @@ else
   tmux set-option -t <track> remain-on-exit on
 fi
 tmux send-keys -t <track> \
-  "$GROK --no-auto-update --always-approve -m grok-4.6 --cwd <worktree> \
+  "$GROK --no-auto-update --always-approve -m <coder-model> --cwd <worktree> \
      --continue -p 'Execute the next incomplete worker phase. Skip staging. Same gate protocol. One outcome only — do not smuggle a second outcome into the same PR. Phase DoD is the product check commands; AWAITING GATE is illegal until they exit 0. Run that check in the worktree; push only if green. Run scripts/pr-size-check before opening a draft. Over cap or a second outcome: AWAITING SPLIT, do not open a megadiff PR. File count alone does not fail GATE. COMMENT only after this-SHA CI is green. Write the status file. Run scripts/gate-preflight.' \
      2>&1 | tee -a \"$LOG\"" Enter
 ```
@@ -147,7 +147,7 @@ mkdir -p "$REVDIR"
 VERDICT="$REVDIR/${REPO}-pr${PR}-${PINNED}.md"
 set -o pipefail
 codex review --base "$DEFAULT" \
-  -c 'model="gpt-5.6-sol"' \
+  -c 'model="<reviewer-model>"' \
   -c 'model_reasoning_effort="high"' \
   | tee "$VERDICT"
 status=$?
@@ -163,13 +163,13 @@ fi
 gh pr review "$PR" --comment --body-file "$VERDICT"
 ```
 
-Never Approve. Never review the PR in the same Grok session that wrote it. A fresh Grok session is not an acceptable reviewer.
+Never Approve. Never review the PR in the same session that wrote it. A fresh session of the same model is not an acceptable reviewer. Review always runs on a fleet node.
 
 ## CoS gate
 
-Agent-side Sol/high is already the different-family check. Default CoS gate is **not** a second Sol pass on every low-risk diff:
+Agent-side fleet COMMENT is already the independent-model check. Default CoS gate is **not** a second review pass on every low-risk diff:
 
-1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping Sol will save it. Do not GATE. File count alone does not fail GATE.
+1. Outcome, then size: this PR is still one graph node / one outcome. Run `scripts/gate-preflight` (exactly one node, COMMENT on this SHA, `scripts/pr-size-check`, CI green or verified no-CI). A second outcome, or exit 2 / `AWAITING SPLIT`, is REVISE to split. Do not COMMENT-review a +11k PR hoping the reviewer will save it. Do not GATE. File count alone does not fail GATE.
 2. Clobber-check; rebase; serialize merges.
 3. If rebase moved the SHA, repeat the size check on the new head, wait for this-SHA CI (or record that no current-head run exists), then run a fresh COMMENT review on the new head.
 4. Confirm COMMENT exists for **this** head.
@@ -179,9 +179,9 @@ Agent-side Sol/high is already the different-family check. Default CoS gate is *
 
 After merge: watch default-branch CI, deploy staging, live-verify the merged SHA. Staging is CoS-only.
 
-Escalate to a fresh CoS-run Sol/high COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
+Escalate to a fresh CoS-run fleet COMMENT for schema, auth, migration, security, data-write, or a thin pre-review. Record command, SHA, output path, and exit status.
 
-If dispatch fails, escalate dispatch. The CoS Bot does not become the implementer.
+If the chosen path is fleet dispatch and dispatch fails, escalate dispatch. Do not silently switch the locus to the CoS session.
 
 `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Repository merge at GATE is a human action, not a CoS auto-merge. Do not go quiet after one notice. Do not phrase that decision as a status.
 

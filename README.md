@@ -16,7 +16,7 @@ A single immortal CLI session fails in predictable ways:
 - Nobody is awake when a chat turn ends, so a stuck track stays stuck.
 - Merge, staging, and production get treated as one blob called "done."
 
-A Chief of Staff (CoS) owns the goal and the gates. Workers implement one phase at a time in isolated git worktrees. A **different model family** reviews the pull request as a GitHub `COMMENT`, never as Approve. Repository merge at GATE is a human action (`WAITING ON YOU`). The CoS live-verifies staging. Production stays human-gated.
+A Chief of Staff (CoS) owns the goal and the gates. Coding may run in the orchestrator's internal session or on a fleet node, in an isolated git worktree. A **different, at-least-as-capable model** (preferably more capable; different family preferred) reviews the pull request on a fleet node as a GitHub `COMMENT`, never as Approve. Repository merge at GATE is a human action (`WAITING ON YOU`). The CoS live-verifies staging. Production stays human-gated.
 
 This method is used in production at CORTEX Mesh. The public tree describes the process, not the shop topology.
 
@@ -32,7 +32,7 @@ flowchart TD
   Graph --> Dispatch[CoS dispatches unblocked tracks]
   Dispatch --> Work[Worker implements one phase]
   Work --> Draft[Draft pull request]
-  Draft --> Review[Different-family COMMENT review]
+  Draft --> Review[Fleet COMMENT review]
   Review --> Await[AWAITING GATE]
   Await --> CosGate[CoS confirms this head]
   CosGate --> Merge[Serialize merge]
@@ -48,7 +48,7 @@ flowchart TD
 2. Write a long **goal prompt**. Lock human decisions. List phases. Keep a progress log.
 3. Draw a **dependency graph** before a parallel wave. Overlapping files do not run in parallel.
 4. Dispatch each unblocked track to a **free worker** (`dev-1`, `ci-box`, or a laptop).
-5. The worker implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a different-family review, and reports `AWAITING GATE`.
+5. The worker (fleet node or recorded internal session) implements **this phase**, runs the product repo CI-equivalent check, opens a **draft PR**, waits for this-SHA CI, runs a fleet review with a different and more capable model (different family preferred), and reports `AWAITING GATE`.
 6. The CoS confirms the COMMENT covers **this head**, clobber-checks, waits for exact-head CI, then emits `WAITING ON YOU: merge PR #N`. Repository merge at GATE is a human action.
 7. Staging is live-verified. Production is a human step.
 
@@ -76,10 +76,10 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 | Controller | Implementer | Reviewer | Doc |
 | --- | --- | --- | --- |
-| Any | Isolated worker CLI | Different family from the writer | [playbooks/general.md](playbooks/general.md) |
-| Claude | Worker CLI (often Codex) | Opus | [playbooks/claude.md](playbooks/claude.md) |
-| Codex | Codex CLI | `gpt-5.6-sol` / high | [playbooks/codex.md](playbooks/codex.md) |
-| Grok Bot | Grok CLI `grok-4.6` | `gpt-5.6-sol` / high COMMENT | [playbooks/grok.md](playbooks/grok.md) |
+| Any | Internal session or fleet CLI | Different, more capable model on a fleet node (different family preferred) | [playbooks/general.md](playbooks/general.md) |
+| Claude | `<coder-model>` (often Codex) | `<reviewer-model>` on a fleet node | [playbooks/claude.md](playbooks/claude.md) |
+| Codex | Codex CLI `<coder-model>` | `<reviewer-model>` on a fleet node, different family preferred | [playbooks/codex.md](playbooks/codex.md) |
+| Grok Bot | Grok CLI `<coder-model>` or a recorded internal session | `<reviewer-model>` on a fleet node, different family preferred | [playbooks/grok.md](playbooks/grok.md) |
 
 ## Docs
 
@@ -87,6 +87,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 - [Architecture](docs/architecture.md) — mermaid architecture and sequence
 - [Meta-repo](docs/meta-repo.md) — map vs product repos
 - [Method ADRs](docs/adr/README.md)
+- [Fleet PR quality gate](docs/fleet-pr-quality-gate.md) — six gates, checklist, waiver rule ([ADR 0009](docs/adr/0009-coding-locus-and-review-gate.md))
 - [Sample dependency graph](examples/sample-dependency-graph.md)
 - [Worker status schema](examples/status.schema.yaml) — worker writes; CoS reads. Heartbeat and GATE do not invent state from tmux.
 - [GATE log example](examples/sample-gate-log.tsv) — append-only DISPATCH / REVISE 1–3 / SPLIT / GATE / HUMAN

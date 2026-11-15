@@ -1,15 +1,15 @@
 # Design
 
-How a Chief of Staff, a worker pool, and a different-family reviewer ship a product without turning one chat into the system of record.
+How a Chief of Staff, a worker pool, and a fleet reviewer (a different, more capable model; different family preferred) ship a product without turning one chat into the system of record.
 
 ## Roles
 
 | Role | Owns | Does not own |
 | --- | --- | --- |
 | **Human operator** | Goal, spend, secrets, DNS, production, unresolved product choices | Day-to-day implementation once decisions are locked |
-| **Chief of Staff (CoS)** | Goal prompt, dependency graph, dispatch, gates, merge order, staging live-verify, heartbeat | Writing the feature in the same turn that gates it |
-| **Worker** | One track, one worktree, one phase: implement, prove, draft PR, request review | Self-merge, `gh pr ready`, production, inventing new gates, staging dispatch |
-| **Reviewer** | A fresh session in a **different model family** than the writer. Posts a GitHub `COMMENT`. A fresh Grok session is not an acceptable reviewer of a Grok implementation. | Approve, Request changes, or rubber-stamping the implementer |
+| **Chief of Staff (CoS)** | Goal prompt, dependency graph, dispatch, gates, merge order, staging live-verify, heartbeat. May implement only as an explicit, recorded locus ([ADR 0009](adr/0009-coding-locus-and-review-gate.md)). | Reviewing or merging the feature in the same session that wrote it |
+| **Worker** | One track, one worktree, one phase: implement, prove, draft PR, request review. The worker may be a fleet CLI or the orchestrator's internal session. | Self-merge, `gh pr ready`, production, inventing new gates, staging dispatch, reviewing its own diff |
+| **Reviewer** | A fresh session on a **fleet node**, using a **different and at-least-as-capable model** (preferably more capable; different family preferred). Posts a GitHub `COMMENT`. A fresh session of the same model that wrote the change is not an acceptable reviewer. | Approve, Request changes, or rubber-stamping the implementer |
 
 Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are steps. One CoS per standing product goal. If two controllers must share a goal, use a shared thread, not a specialist swarm.
 
@@ -22,10 +22,10 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 1. **Lock decisions.** Number them (`D1`, `D2`, …). Workers do not re-litigate them.
 2. **Write the goal long.** Short goals stall. Phase 0 is docs and ADRs. Later phases are code.
 3. **Graph before a wave.** Each track names repo, assigned host (after failover), tmux or gone, log path, branch, base SHA, draft PR, head SHA, COMMENT URL, inputs, overlaps, gate class, CoS-may-do, and login/preflight.
-4. **Dispatch to a free logged-in worker.** Check tmux and existing sessions first. Login is a per-host input. A logged-out host does not block the wave: re-pick and write the new owner into the graph. If dispatch fails, escalate; the CoS does not become the implementer.
-5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Run the product repo CI-equivalent check; push only if green. Mutation-test new tests. Skip staging — CoS-only.
-6. **Draft PR, wait for this-SHA CI, then COMMENT review.** Different family from the writer. Never Approve. Never a fresh Grok session reviewing a Grok implementation.
-7. **Write the status file.** Run `scripts/gate-preflight`. Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, and risks. Workers never `gh pr ready`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they pass.
+4. **Choose the coding locus.** Fleet node (dispatch to a free logged-in worker) or the orchestrator's internal session. Record the choice on the PR. If the chosen path is fleet dispatch, check tmux and existing sessions first. Login is a per-host input. A logged-out host does not block the wave: re-pick and write the new owner into the graph. If fleet dispatch fails, escalate; do not silently switch the locus to the CoS session.
+5. **Implement this phase.** Dedicated worktree. Prove the real caller path. Run the product repo CI-equivalent check; push only if green. Mutation-test new tests. Skip staging — CoS-only after merge.
+6. **Draft PR, wait for this-SHA CI, then COMMENT review on a fleet node.** Different and at-least-as-capable model (preferably more capable; different family preferred). Never Approve. Never a same-model review. Same-family review only when no other family is on the fleet, with the reason on the PR.
+7. **Write the status file.** Run `scripts/gate-preflight`. Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, risks, and the [quality-gate checklist](fleet-pr-quality-gate.md). Workers never `gh pr ready`. Phase DoD is the product check commands; `AWAITING GATE` is illegal until they pass.
 8. **CoS repo gate.** Read status + GATE log + graph. Run `scripts/gate-preflight`. Clobber-check and rebase. If the SHA moved, refresh the COMMENT. Confirm the COMMENT covers this head. Exact-head CI.
 9. **REVISE or GATE.** After repo-gate evidence is green, mark the draft ready and emit `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Do not merge while waiting. Watch default-branch CI after the human merges. Same blocker: evidence, one REVISE, then stop and escalate.
 10. **Staging gate (CoS-only).** Deploy the merged SHA and live-verify. Green pre-merge CI is not a staging check.
@@ -37,7 +37,7 @@ The CoS chat is authoritative. A watchdog may inspect, heartbeat, and take the n
 
 Keep them separate. Evidence from a later class must not block an earlier class.
 
-1. **Repository.** Product repo CI-equivalent check, mutation proof, COMMENT review after current-head CI is green, CI green on **this** SHA. See [playbooks/general.md](../playbooks/general.md#cicd).
+1. **Repository.** Product repo CI-equivalent check, mutation proof, coverage floor (85%, target 90%; no drop vs base; CI-enforced; or `Coverage: N/A` for docs-only), COMMENT review after current-head CI is green, CI green on **this** SHA. See [playbooks/general.md](../playbooks/general.md#cicd) and [fleet-pr-quality-gate.md](fleet-pr-quality-gate.md).
 2. **Staging / integration.** Merge order, staging deploy, live checks against the deployed revision.
 3. **Production.** Secrets, paid resources, destructive migrations, traffic. Human only.
 
@@ -57,7 +57,7 @@ See [ADR 0003](adr/0003-worktrees-and-parallel-tracks.md).
 
 1. Spread work across the pool. Do not pile every track onto the strongest host.
 2. Parallelize independent tracks only. Serialize merges.
-3. The worker posts the different-family COMMENT. The CoS re-reviews high-risk diffs only (schema, auth, migration, security, data-write, or a thin pre-review).
+3. The fleet reviewer posts the independent COMMENT. The CoS re-reviews high-risk diffs only (schema, auth, migration, security, data-write, or a thin pre-review), still on a fleet node with a qualifying model.
 4. Live-verify staging. Green CI is not enough.
 5. Phase the worker with resume/continue. Do not pretend one shot is an immortal session.
 6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` after `gh pr ready`, not one notice then quiet.

@@ -1,26 +1,26 @@
 # Codex controller playbook
 
-Use this when **Codex** is the Chief of Staff. Implementation is Codex CLI. Review is a **fresh** `gpt-5.6-sol` / high session — not the implementing session.
+Use this when **Codex** is the Chief of Staff. Implementation is Codex CLI on a fleet node, or a recorded Codex CoS session ([ADR 0009](../docs/adr/0009-coding-locus-and-review-gate.md)). Review always runs on a fleet node, in a fresh session, on a different and at-least-as-capable model, preferably a different family (Claude or Grok when available). Same-family Codex review is last-resort only, with the reason on the PR.
 
 ## Model contract
 
 | Role | Required model |
 | --- | --- |
-| Implement | `gpt-5.6-terra`, `model_reasoning_effort=high` |
-| Authoritative review | `gpt-5.6-sol`, `model_reasoning_effort=high` |
-| High-risk re-review | Fresh sol/high with a risk-specific prompt |
+| Implement | `<coder-model>` (pin a current Codex model; high effort) |
+| Authoritative review | `<reviewer-model>` on a fleet node, different family preferred |
+| High-risk re-review | Fresh fleet review with a qualifying model and a risk-specific prompt |
 
-Pin the explicit model names. Do not float a generic alias, and do not use Opus as the authoritative reviewer on this path.
+Pin the explicit model names at dispatch. Do not float a generic alias. See the example table as of 2026-11 in [general.md](general.md#model-pins). Prefer a different family (Claude or Grok) when one is available and at least as capable. A same-family Codex reviewer is allowed only when no other family is on the fleet, and the PR states that reason.
 
 ## Loop
 
 ```text
 dispatch precise task/goal
-  → Terra/high implements and verifies
+  → <coder-model> implements and verifies
   → CI-equivalent check in the worktree; red = do not push
   → scripts/pr-size-check; over cap → AWAITING SPLIT (do not open a megadiff)
-  → draft PR; this-SHA CI green; then COMMENT, AWAITING GATE
-  → CoS runs fresh Sol/high review
+  → draft PR; this-SHA CI green; then fleet COMMENT, AWAITING GATE
+  → CoS runs a fresh fleet review with a qualifying model
   → REVISE or WAITING ON YOU: merge
   → human merges → staging → live-verify
 ```
@@ -30,7 +30,7 @@ dispatch precise task/goal
 Steerable:
 
 ```sh
-codex -m gpt-5.6-terra \
+codex -m <coder-model> \
   -c model_reasoning_effort=high \
   --no-alt-screen \
   --dangerously-bypass-approvals-and-sandbox \
@@ -41,7 +41,7 @@ codex -m gpt-5.6-terra \
 Unattended:
 
 ```sh
-codex exec -m gpt-5.6-terra \
+codex exec -m <coder-model> \
   -c model_reasoning_effort=high \
   --dangerously-bypass-approvals-and-sandbox \
   -C <absolute-worktree-path> \
@@ -50,11 +50,11 @@ codex exec -m gpt-5.6-terra \
 
 Run in a named tmux session. Verify `codex --version` and `codex login status` before first use on a host. Never implement in the shared default-branch checkout.
 
-For a small task on an existing persistent session: send one precise outcome, press Enter, and verify the pane started. Confirm the session is still Terra/high.
+For a small task on an existing persistent session: send one precise outcome, press Enter, and verify the pane started. Confirm the session is still the pinned `<coder-model>`.
 
 ## Review
 
-From a fresh session and a clean worktree against the current PR head. Follow the SHA-pin protocol in [general.md](general.md): tee to `$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md`, check exit status, pin `commit_id` to the exact head, abort if the live head moved, then `gh pr review --comment --body-file`. Never interpolate the verdict into `--body`.
+From a fresh session on a **fleet node** and a clean worktree against the current PR head. Prefer a different-family reviewer CLI when one is available; the snippet below is the Codex-reviewer form used only when that last-resort applies, or when the chosen `<reviewer-model>` is a Codex model. Follow the SHA-pin protocol in [general.md](general.md): tee to `$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md`, check exit status, pin `commit_id` to the exact head, abort if the live head moved, then `gh pr review --comment --body-file`. Never interpolate the verdict into `--body`.
 
 Resolve `<default>` from this repo; do not assume `main`.
 
@@ -69,7 +69,7 @@ mkdir -p "$REVDIR"
 VERDICT="$REVDIR/${REPO}-pr${PR}-${PINNED}.md"
 set -o pipefail
 codex review --base "$DEFAULT" \
-  -c 'model="gpt-5.6-sol"' \
+  -c 'model="<reviewer-model>"' \
   -c 'model_reasoning_effort="high"' \
   | tee "$VERDICT"
 status=$?

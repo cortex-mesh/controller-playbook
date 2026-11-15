@@ -23,7 +23,7 @@ flowchart TB
   end
 
   subgraph review [Review]
-    Rev[Different-family reviewer]
+    Rev[Fleet reviewer]
     Gh[Draft PR on GitHub]
   end
 
@@ -53,7 +53,7 @@ flowchart TB
 - The **goal prompt** is the standing instruction every fresh session re-reads.
 - The **meta-repo** is a map of products, ADRs, and runbooks. It is not the product.
 - Each **worker** owns one git worktree on one host. A laptop-only pool is one host with many worktrees, still one track per worktree.
-- **Review** is a different process and a different model family from the writer.
+- **Review** is a different process on a fleet node, using a different and at-least-as-capable model (preferably more capable; different family preferred).
 - **Production** is outside the worker's autonomy.
 
 ## One-track sequence
@@ -69,12 +69,12 @@ sequenceDiagram
 
   Human->>CoS: lock decisions and goal prompt
   CoS->>CoS: write dependency graph
-  CoS->>Worker: dispatch next incomplete worker phase
+  CoS->>Worker: implement next incomplete worker phase (fleet node or recorded CoS session)
   Worker->>Worker: implement in dedicated worktree
   Worker->>Worker: CI-equivalent check, mutation-check
   Worker->>GH: open draft pull request
   Note over Worker,GH: COMMENT after this-SHA CI is green
-  Worker->>Rev: different-family review on this head
+  Worker->>Rev: fleet review on this head (different, more capable model)
   Rev->>GH: COMMENT review
   Worker->>CoS: AWAITING GATE plus COMMENT URL
   CoS->>GH: confirm COMMENT and CI on this SHA
@@ -111,7 +111,7 @@ Every live track should be nameable from the graph. Keep assigned host (after fa
 | Input contract | ADR-0001 accepted; schema from track A |
 | Overlaps | none with `harbor-web-shell` |
 | Gate class | repository |
-| Repo gate | CI-equivalent check, COMMENT after this-SHA CI, CI on this SHA |
+| Repo gate | CI-equivalent check, coverage floor or N/A, COMMENT after this-SHA CI, CI on this SHA |
 | Staging gate | CoS-only after merge; live GET `/health` |
 | CoS may do without a human | rebase, COMMENT confirm, `gh pr ready`, staging verify after the human merges |
 | Human at GATE | WAITING ON YOU: merge PR #N (or accept residual / unlock REVISE) |
@@ -125,7 +125,7 @@ The CoS cannot sit in one turn forever. A 10-minute routine (or a tmux watchdog 
 - Heartbeat while implementing or in CI (dual timestamps), including "still working." Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED.
 - `AWAITING GATE` in the graph is the repo gate. The human-visible line is `WAITING ON YOU: merge PR #N` (or accept residual / unlock REVISE). Stop the 10-minute WORKING drip; keep a one-shot reminder. Do not go quiet after one notice.
 - Inspect tmux, git, PR head, and CI. Read the worker [status file](../examples/status.schema.yaml) and the [GATE log](../examples/sample-gate-log.tsv). Do not invent state from tmux. A missing pane is not a dead track; infer GATE from draft PR + COMMENT on this head + SHA. Do not re-dispatch.
-- Take the next already-authorized repo-safe step. Do not become the implementer when dispatch fails.
+- Take the next already-authorized repo-safe step. A watchdog must not become the implementer when dispatch fails.
 - Do not double-dispatch a progressing track.
 - Same blocker: (1) evidence, (2) one REVISE, (3) stop the track and escalate. No attempt 4. Independent tracks continue.
 

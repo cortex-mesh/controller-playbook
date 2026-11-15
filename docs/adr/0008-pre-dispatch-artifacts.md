@@ -25,7 +25,7 @@ Before a Chief of Staff writes a goal prompt, advance a **pre-dispatch artifact 
 4. **`spec.md`** — product/behavior contract after PO sign-off (in/out of scope, UX or API surface, acceptance criteria, locked decisions).
 5. **`plan.md`** — self-contained implementation plan (phases, risks, dependencies, DoD hints) that a CoS can turn into a goal prompt without re-reading chat.
 
-After `plan.md` is locked, the CoS **still** authors a **goal prompt** per [`skills/goal-prompt/SKILL.md`](../../skills/goal-prompt/SKILL.md). Then dependency graph, dispatch, implement, different-family COMMENT review, GATE, human merge, staging verify, production (human) — the same loop as before.
+After `plan.md` is locked, the CoS **still** authors a **goal prompt** per [`skills/goal-prompt/SKILL.md`](../../skills/goal-prompt/SKILL.md). Then dependency graph, implement (orchestrator session or fleet node), fleet COMMENT review by a different and more capable model (different family preferred; [ADR 0009](0009-coding-locus-and-review-gate.md)), GATE, human merge, staging verify, production (human) — the same loop as before.
 
 `plan.md` feeds the goal; it is not a substitute for the goal prompt, graph, or gates.
 
