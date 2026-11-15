@@ -57,7 +57,7 @@ Prefer a **different model family** from the coder, on a fleet node, at least as
 | --- | --- |
 | Grok Bot internal session, or a Grok CLI worker | Codex or Claude Code, strongest available qualifying tier |
 | A Codex worker dispatched by this controller | Claude Code, or a Grok reviewer if that is the strongest available different-family option |
-| A Claude Code worker dispatched by this controller | Codex, or a Grok reviewer only as last-resort same-family when no other family is on the fleet |
+| A Claude Code worker dispatched by this controller | Codex or Grok, strongest available qualifying tier |
 
 A fresh Grok session of the same model that wrote the change is not an acceptable reviewer. Same-family review is last-resort only, must be more capable, and the PR states why no other family was available. See the example model table as of 2026-11 in [general.md](general.md#model-pins).
 

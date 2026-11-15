@@ -45,12 +45,12 @@ Prefer a **different model family** from the coder, on a fleet node, at least as
 | Coder | Preferred fleet reviewer |
 | --- | --- |
 | A Codex worker, or a Codex internal session | Claude Code or Grok, strongest available qualifying tier |
-| A Grok CLI worker dispatched by this controller | Claude Code, or Codex only as last-resort same-family when no other family is on the fleet |
+| A Grok CLI worker dispatched by this controller | Claude Code or Codex, strongest available qualifying tier |
 | A Claude Code worker dispatched by this controller | Codex or Grok, as long as the reviewer is a different family from the coder |
 
 Pin the explicit model names at dispatch and at review. See the example table as of 2026-11 in [general.md](general.md#model-pins). A same-family Codex reviewer is allowed only when no other family is on the fleet, must be more capable, and the PR states that reason.
 
-Never review in the coder's session. From a fresh session on a **fleet node** and a clean worktree against the current PR head. Prefer a different-family reviewer CLI when one is available. For a Claude Code reviewer, use the review command in [claude.md](claude.md#fleet-reviewer-pairings). The snippet below is the Codex-reviewer form, used only when that last-resort applies, or when the chosen `<reviewer-model>` is a Codex model.
+Never review in the coder's session. From a fresh session on a **fleet node** and a clean worktree against the current PR head. Prefer a different-family reviewer CLI when one is available. For a Claude Code reviewer, use the review command in [claude.md](claude.md#fleet-reviewer-pairings). The snippet below is the Codex-reviewer form, used when the chosen `<reviewer-model>` is a Codex model. That is last-resort same-family only when the coder was also Codex.
 
 Follow the SHA-pin protocol in [general.md](general.md#review): tee to `$HOME/.cortex/reviews/<repo>-pr<n>-<sha>.md`, check exit status, pin `commit_id` to the exact head, abort if the live head moved, then `gh pr review --comment --body-file`. Never interpolate the verdict into `--body`.
 
@@ -123,7 +123,7 @@ A Codex controller may dispatch a Grok CLI worker on a fleet node. Use the Grok 
 
 ### Worker: Claude Code
 
-A Codex controller may dispatch a Claude Code worker on a fleet node. Use the Claude Code worker notes in [claude.md](claude.md#worker-claude-code), with a pinned `<coder-model>`. Review then prefers Grok, or Codex only as last-resort same-family when no other family is on the fleet.
+A Codex controller may dispatch a Claude Code worker on a fleet node. Use the Claude Code worker notes in [claude.md](claude.md#worker-claude-code), with a pinned `<coder-model>`. Review then prefers Grok or Codex (both a different family from the Claude Code coder).
 
 ## Gate and merge
 
