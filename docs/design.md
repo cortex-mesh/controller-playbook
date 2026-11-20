@@ -33,6 +33,8 @@ Do not mint extra bots named dispatcher, coder, reviewer, or merger. Those are s
 
 The CoS chat is authoritative. A watchdog may inspect, heartbeat, and take the next already-authorized repo-safe step. It may not invent gates, merge production, or retry an unresolved escalation forever.
 
+**Exits.** A stall (the same failing check with no material change) is an exit. Per-track turn and spend caps are also exits. Today the only spend cap is per product.
+
 ## Three gate classes
 
 Keep them separate. Evidence from a later class must not block an earlier class.
@@ -62,6 +64,12 @@ See [ADR 0003](adr/0003-worktrees-and-parallel-tracks.md).
 5. Phase the worker with resume/continue. Do not pretend one shot is an immortal session.
 6. One CoS per standing goal. Heartbeat every 10 minutes while implementing or in CI. Every CoS-visible message starts with WORKING, WAITING ON YOU, or BLOCKED. `AWAITING GATE` in the graph is `WAITING ON YOU: merge PR #N` after `gh pr ready`, not one notice then quiet.
 
+## System loop
+
+Run weekly. Group the runs that stalled, hit a cap, or needed a REVISE by cause. For the top cause, propose one permanent change, preferring in this order a deny or permission rule, then a lint or CI check, then a tool, and only last one instruction line. Re-run one failed task with the change, then open a PR that a human merges, never self-merged.
+
+After a model upgrade, try removing one harness piece on a branch to see whether it is still needed.
+
 ## Security boundary
 
 **Separate bots or controllers are not a security boundary.** They share one computer, one set of sessions, and one set of logins. The far end (GitHub, cloud provider, SaaS) sees the human operator's identity. Approvals in the goal prompt prevent actions; they do not reverse them. A CoS approval gate is not an undo button for production. Production must remain a human-only gate because production actions are irreversible.
@@ -80,6 +88,7 @@ Stop and ask a human before any of the following:
 - Merging without a COMMENT review on **this** head
 - Approving a PR from the same session that wrote it
 - Retrying the same blocker after three documented attempts
+- A cap crossing or a stall stops the track. Write the status file, ask a human, and do not keep spending
 - Publishing personal names, home paths, IPs, or a real worker-host inventory
 
 Workers run in-scope repository work without asking. Everything on this list is out of scope until a human unlocks it in the goal prompt.

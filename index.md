@@ -64,7 +64,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 ## Start here
 
-- [Design](docs/design.md) — roles, gates, anti-churn, human-stop list
+- [Design](docs/design.md) — roles, gates, anti-churn, system loop, human-stop list
 - [Architecture](docs/architecture.md) — architecture and one-track sequence
 - [Playbooks](playbooks/README.md) — choose a controller setup (Grok Bot, Claude Code, or Codex)
 - [Pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) — optional intent → spec → plan before goal prompt
