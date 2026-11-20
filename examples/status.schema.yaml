@@ -89,3 +89,22 @@ properties:
           description: Process exit code. AWAITING GATE is illegal if any exit != 0.
         note:
           type: string
+  exit_reason:
+    type: string
+    enum:
+      - stall
+      - budget
+      - turns
+      - check
+      - human
+    description: Why the track stopped. Optional; omit when still running.
+  cost:
+    type: object
+    additionalProperties: true
+    description: Token or dollar cost when the runtime can provide it. Omit rather than guess.
+  tried:
+    type: array
+    description: Failed approaches so a REVISE does not repeat them.
+    items:
+      type: string
+      minLength: 1

@@ -64,7 +64,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 ## How to start
 
-1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, and the human-stop list.
+1. Read [docs/design.md](docs/design.md) for roles, gates, anti-churn, the system loop, and the human-stop list.
 2. Read [docs/architecture.md](docs/architecture.md) for the architecture and one-track sequence.
 3. Choose a controller setup in [playbooks/README.md](playbooks/README.md) (Grok Bot, Claude Code, or Codex).
 4. (Optional) For new products or features: advance [pre-dispatch artifacts](skills/pre-dispatch-artifacts/SKILL.md) (`intent.md` → originator review → PO sign-off → `spec.md` → `plan.md`) before writing a goal prompt. See [examples](examples/sample-intent.md).
@@ -83,7 +83,7 @@ Still use a dedicated git worktree per track. Still split implementer and review
 
 ## Docs
 
-- [Design](docs/design.md) — roles, loop, gates, anti-churn, human-stop
+- [Design](docs/design.md) — roles, loop, gates, anti-churn, system loop, human-stop
 - [Architecture](docs/architecture.md) — mermaid architecture and sequence
 - [Meta-repo](docs/meta-repo.md) — map vs product repos
 - [Method ADRs](docs/adr/README.md)

@@ -54,6 +54,8 @@ CoS writes phases (graph + goal prompt) → implement on a fleet node or in the 
 
 Workers stop at `AWAITING GATE` or `AWAITING SPLIT`. Staging / last integration is CoS-only. Production stays a human gate.
 
+A weekly system loop (see [design.md](../docs/design.md#system-loop)) turns repeated exits into one harness change. Add a scheduled trigger only after the check, exits, walls, and human merge are in place.
+
 ## Runtime facts
 
 Heartbeat and GATE read files, not chat. The CoS does not invent state, PR, SHA, product lines, review round, or next action from tmux output.
@@ -61,6 +63,7 @@ Heartbeat and GATE read files, not chat. The CoS does not invent state, PR, SHA,
 - **Graph.** Living YAML via `scripts/graph-lint` and `scripts/track-status`.
 - **Worker status.** [schema](../examples/status.schema.yaml), [Harbor example](../examples/sample-status.yaml). The worker writes; the CoS reads. Required: `state`, `pr`, `head_sha`, `added_product_lines`, `review_round`, `next_action`. Live file is local (`STATUS=` or next to the graph).
 - **GATE log.** Append-only ([example](../examples/sample-gate-log.tsv)). Events: `DISPATCH`, `REVISE 1`, `REVISE 2`, `REVISE 3`, `SPLIT`, `GATE`, `HUMAN`. Survives a new chat. 3-cap and merge order come from this log plus the graph YAML. There is no `REVISE 4`.
+- **Exits and cost.** Status may include `exit_reason` (`stall`, `budget`, `turns`, `check`, `human`) and, when the runtime can provide it, token or dollar cost. Optional `tried` lists the failed approaches so a REVISE does not repeat them. A stall or cap crossing is a stop, same as REVISE 3: write the file, page the CoS, do not continue.
 - **Preflight.** Before `AWAITING GATE` / before GATE, run `scripts/gate-preflight`. It fails unless this PR maps to exactly one graph node, a COMMENT review is on this SHA, `scripts/pr-size-check` is green, and current-head CI is green or verified no-CI.
 
 A missing pane is still not DEAD. Infer from status + `scripts/track-status`, not from poetry in the pane.
@@ -121,6 +124,8 @@ If the chosen path is fleet dispatch and dispatch fails, escalate dispatch. Do n
 - Write the worker status file (schema above). Phase DoD is the product check commands (`make check`, or the exact commands from that repo CI). `AWAITING GATE` is illegal until those commands exit 0. If there is no `make check` and no current-head CI, record `ci: none` and say so.
 - Run `scripts/gate-preflight` before reporting `AWAITING GATE`.
 - Report `AWAITING GATE` with branch, PR, head SHA, COMMENT URL, risks, and the quality-gate checklist below. Never report `AWAITING GATE` on an over-cap PR or a two-outcome PR.
+- On a failed check, write a short expected-vs-actual (command, expected, got, where) into the status file, and append the approach to `tried`. Do not start the next REVISE with only "tests failed."
+- Stop on stall (same failing check and no material change) or when the track's turn or spend cap is hit. Do not burn the cap hoping the next attempt is different.
 - Stop. Never self-merge. Never ship production. Never start staging.
 
 Do not revert a correct fix to satisfy a stale test. Update the test and prove it fails without the fix.
